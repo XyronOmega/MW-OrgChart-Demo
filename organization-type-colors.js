@@ -89,12 +89,13 @@
 
     content.querySelectorAll('[data-type-color]').forEach((input) => input.addEventListener('input', () => {
       const type = input.dataset.typeColor
-      colors = { ...colors, [type]: input.value.toLowerCase() }
+      const value = input.value.toLowerCase()
+      colors = { ...colors, [type]: value }
       save(colors)
       renderAdmin()
       applyColors()
       const message = document.querySelector('[data-type-color-message]')
-      if (message) message.textContent = `${labels[type]} wurde auf ${input.value.toUpperCase()} geändert.`
+      if (message) message.textContent = `${labels[type]} wurde auf ${value.toUpperCase()} geändert.`
     }))
     content.querySelectorAll('[data-type-reset]').forEach((button) => button.addEventListener('click', () => {
       const type = button.dataset.typeReset
@@ -114,10 +115,9 @@
   const isTypeColorButton = (button) => /kartenstile|darstellung|organisationstypen/i.test(button.textContent || '')
   const enhanceNavigation = () => {
     document.querySelectorAll('#nav button').forEach((button) => {
-      if (!isTypeColorButton(button)) return
-      button.textContent = 'Organisationstypen'
-      if (button.dataset.typeColorNavigation === 'true') return
+      if (!isTypeColorButton(button) || button.dataset.typeColorNavigation === 'true') return
       button.dataset.typeColorNavigation = 'true'
+      if ((button.textContent || '').trim() !== 'Organisationstypen') button.textContent = 'Organisationstypen'
       button.addEventListener('click', () => window.setTimeout(renderAdmin, 40), true)
     })
   }
@@ -127,12 +127,19 @@
     colors = { ...defaults }
   }, true)
 
-  new MutationObserver(() => {
-    enhanceNavigation()
-    applyColors()
-    const activeTypeButton = Array.from(document.querySelectorAll('#nav button')).find((button) => isTypeColorButton(button) && (button.classList.contains('active') || button.classList.contains('is-active') || button.getAttribute('aria-current') === 'page'))
-    if (activeTypeButton && !document.querySelector('[data-type-color-admin]')) window.setTimeout(renderAdmin, 20)
-  }).observe(document.body, { childList: true, subtree: true })
+  let observerScheduled = false
+  const observer = new MutationObserver(() => {
+    if (observerScheduled) return
+    observerScheduled = true
+    window.requestAnimationFrame(() => {
+      observerScheduled = false
+      enhanceNavigation()
+      applyColors()
+      const activeTypeButton = Array.from(document.querySelectorAll('#nav button')).find((button) => isTypeColorButton(button) && (button.classList.contains('active') || button.classList.contains('is-active') || button.getAttribute('aria-current') === 'page'))
+      if (activeTypeButton && !document.querySelector('[data-type-color-admin]')) window.setTimeout(renderAdmin, 20)
+    })
+  })
+  observer.observe(document.body, { childList: true, subtree: true })
 
   enhanceNavigation()
   applyColors()
