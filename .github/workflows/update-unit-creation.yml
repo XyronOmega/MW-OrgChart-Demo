@@ -1,0 +1,81 @@
+name: Update organization unit creation demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/update-unit-creation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout published demo
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Add guided organization unit creation
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+
+          css = '''
+              .unit-builder{margin-bottom:18px;border:1px solid var(--line);background:#fff;padding:18px}
+              .unit-builder h3{margin:0 0 6px;color:var(--dark)}
+              .unit-builder p{margin:0 0 16px;color:var(--muted)}
+              .unit-builder-grid{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}
+              .unit-builder-wide{grid-column:1/-1}
+              .unit-placement{display:grid;gap:5px;padding:13px 15px;border-left:6px solid var(--blue);background:#f2fbfd;color:var(--dark)}
+              .unit-placement span{color:var(--muted);line-height:1.45}
+              @media(max-width:760px){.unit-builder-grid{grid-template-columns:1fr}.unit-builder-wide{grid-column:auto}}
+          '''.strip('\n')
+          if '.unit-builder{' not in text:
+              text = text.replace('    @media(max-width:860px)', css + '\n    @media(max-width:860px)', 1)
+
+          replacement = r'''const unitTypeLabels={company:'Unternehmen',section:'Sektion',department:'Abteilung',team:'Team'};
+          const unitParentTypes={section:['company'],department:['company','section'],team:['company','section','department']};
+          let unitDraft=null;
+          function unitPath(id){const parts=[],seen=new Set();let current=state.nodes.find(n=>n.id===id);while(current&&!seen.has(current.id)){parts.unshift(current.name);seen.add(current.id);current=current.parent?state.nodes.find(n=>n.id===current.parent):null}return parts}
+          function unitParentOptions(type){return state.nodes.filter(n=>n.type!=='person'&&n.type!=='team'&&unitParentTypes[type]?.includes(n.type)).sort((a,b)=>unitPath(a.id).join(' / ').localeCompare(unitPath(b.id).join(' / '),'de'))}
+          function renderUnits(){
+            const units=state.nodes.filter(n=>n.type!=='person').map(u=>[esc(u.name),esc(unitTypeLabels[u.type]||u.subtitle||u.type),esc((state.nodes.find(n=>n.id===u.parent)||{}).name||'—'),state.nodes.filter(n=>n.parent===u.id).length,canEdit()?`<button class="btn btn-ghost btn-small" data-rename="${u.id}">Umbenennen</button>`:'Nur lesen']);
+            const builder=unitDraft?`<section class="unit-builder"><h3>Neue Organisationseinheit</h3><p>Zuerst die Ebene und anschließend die genaue Platzierung im Organigramm auswählen.</p><div class="unit-builder-grid"><label class="field"><span>Typ *</span><select id="unitType"><option value="">Typ auswählen</option><option value="section" ${unitDraft.type==='section'?'selected':''}>Sektion</option><option value="department" ${unitDraft.type==='department'?'selected':''}>Abteilung</option><option value="team" ${unitDraft.type==='team'?'selected':''}>Team</option></select></label><label class="field"><span>Übergeordnete Einheit *</span><select id="unitParent" ${unitDraft.type?'':'disabled'}></select></label><div class="unit-placement unit-builder-wide"><strong>Vorgesehene Platzierung</strong><span id="unitPlacement"></span></div><label class="field unit-builder-wide"><span>Name *</span><input id="unitName" value="${esc(unitDraft.name)}" placeholder="Bezeichnung der neuen Einheit"></label></div><div class="actions"><button id="saveUnit" class="btn btn-primary">Einheit anlegen</button><button id="cancelUnit" class="btn btn-ghost">Abbrechen</button></div></section>`:'';
+            content.innerHTML=viewHead('Organisationseinheiten','Sektionen, Abteilungen und Teams mit eindeutiger Platzierung pflegen.',canEdit()?'<button id="addUnit" class="btn btn-primary">Organisationseinheit anlegen</button>':'')+builder+table(['Bezeichnung','Ebene','Übergeordnet','Untergeordnete Einträge','Aktionen'],units);
+            const add=document.getElementById('addUnit');if(add)add.onclick=()=>{unitDraft={type:'',parent:'',name:''};renderUnits()};
+            const cancel=document.getElementById('cancelUnit');if(cancel)cancel.onclick=()=>{unitDraft=null;renderUnits()};
+            const type=document.getElementById('unitType'),parent=document.getElementById('unitParent'),name=document.getElementById('unitName'),placement=document.getElementById('unitPlacement');
+            const refreshPlacement=()=>{if(!unitDraft||!type||!parent||!placement)return;unitDraft.type=type.value;const parents=unitParentOptions(unitDraft.type);if(!parents.some(p=>p.id===unitDraft.parent))unitDraft.parent='';parent.disabled=!unitDraft.type;parent.innerHTML=`<option value="">${unitDraft.type?'Platzierung auswählen':'Zuerst Typ auswählen'}</option>`+parents.map(p=>`<option value="${p.id}" ${p.id===unitDraft.parent?'selected':''}>${esc(unitPath(p.id).join(' › '))} · ${esc(unitTypeLabels[p.type])}</option>`).join('');const label=unitTypeLabels[unitDraft.type]||'Organisationseinheit';placement.textContent=!unitDraft.type?'Zuerst den Typ der neuen Einheit auswählen.':!unitDraft.parent?`Anschließend auswählen, unter welcher Einheit die ${label} angelegt wird.`:[...unitPath(unitDraft.parent),unitDraft.name.trim()||`Neue ${label}`].join(' › ')};
+            if(type){type.onchange=refreshPlacement;parent.onchange=()=>{unitDraft.parent=parent.value;refreshPlacement()};name.oninput=()=>{unitDraft.name=name.value;refreshPlacement()};refreshPlacement()}
+            const saveUnit=document.getElementById('saveUnit');if(saveUnit)saveUnit.onclick=()=>{if(!unitDraft.type)return alert('Bitte zuerst den Typ auswählen.');if(!unitDraft.parent)return alert('Bitte die übergeordnete Einheit auswählen.');if(!unitDraft.name.trim())return alert('Bitte einen Namen eingeben.');state.nodes.push({id:'unit'+Date.now(),parent:unitDraft.parent,type:unitDraft.type,name:unitDraft.name.trim(),subtitle:unitTypeLabels[unitDraft.type],accent:unitDraft.type==='section'?'#070042':unitDraft.type==='department'?'#99e7ff':'#a8ffab'});unitDraft=null;save();renderUnits()};
+            content.querySelectorAll('[data-rename]').forEach(b=>b.onclick=()=>{const u=state.nodes.find(n=>n.id===b.dataset.rename),next=prompt('Neue Bezeichnung',u.name);if(next){u.name=next;save();renderUnits()}})
+          }'''
+
+          lines = text.splitlines()
+          replaced = False
+          for index, line in enumerate(lines):
+              if line.startswith('function renderUnits(){'):
+                  lines[index] = replacement
+                  replaced = True
+                  break
+          if not replaced:
+              raise SystemExit('renderUnits function not found')
+
+          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+
+      - name: Publish updated demo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "demo: guide organization unit type and placement"
+          git push origin gh-pages
