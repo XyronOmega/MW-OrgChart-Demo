@@ -1,0 +1,36 @@
+name: Demo static quality
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-published-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout published gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check leadership-overlay.js
+          node --check platform-admin.js
+          node --check organization-unit-editor.js
+
+      - name: Verify platform assets are loaded
+        run: |
+          grep -F 'platform-admin.css?v=1' index.html
+          grep -F 'platform-admin.js?v=1' index.html
+          grep -F 'organization-unit-editor.js?v=2' index.html
