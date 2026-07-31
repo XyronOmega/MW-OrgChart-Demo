@@ -230,9 +230,19 @@
     return Array.isArray(stored) ? stored.map(normalizeGroup).filter((group) => group.orgUnitId) : []
   }
 
+  /**
+   * Schreibt Unterkategorien. Die Rechteprüfung liegt hier und nicht nur in
+   * der Darstellung: Auch ein nachträglich aktiviertes Bedienelement kann ohne
+   * Bearbeitungsrecht nichts speichern.
+   */
   const saveGroups = (groups) => {
+    if (!canEdit()) {
+      console.warn('[person-groups] Die aktive Rolle darf Unterkategorien nicht ändern.')
+      return false
+    }
     localStorage.setItem(GROUP_KEY, JSON.stringify(groups.map(normalizeGroup)))
     window.dispatchEvent(new CustomEvent('mw-demo-person-groups-changed'))
+    return true
   }
 
   const loadAssignments = () => {
@@ -242,8 +252,15 @@
     return Array.isArray(stored) ? stored : []
   }
 
-  const role = () => document.getElementById('roleSelect')?.value || 'viewer'
-  const canEdit = () => ['editor', 'admin', 'superadmin'].includes(role())
+  // Rollenauskunft aus dem gemeinsamen Vokabular (roles.js). Der Rückfall
+  // entspricht dem bisherigen Verhalten, falls das Modul nicht geladen ist.
+  const role = () => globalThis.MWRoles?.currentRoleId()
+    || document.getElementById('roleSelect')?.value
+    || 'viewer'
+  const canEdit = () => (globalThis.MWRoles
+    ? globalThis.MWRoles.canEditStructure()
+    : ['editor', 'admin', 'superadmin'].includes(role()))
+  const roleLabel = () => globalThis.MWRoles?.label(role()) || role()
   const units = () => loadNodes().filter((node) => node.type !== 'person' && node.isActive !== false)
     .sort((left, right) => left.name.localeCompare(right.name, 'de'))
   const peopleForUnit = (unitId) => loadNodes().filter((node) => node.type === 'person' && String(node.parent || '') === String(unitId))
@@ -290,11 +307,16 @@
   }
 
   const assignPerson = (personId, subcategoryId) => {
+    if (!canEdit()) {
+      console.warn('[person-groups] Die aktive Rolle darf Personenzuordnungen nicht ändern.')
+      return false
+    }
     const nodes = loadNodes()
     const next = nodes.map((node) => String(node.id) === String(personId) && node.type === 'person'
       ? { ...node, subcategoryId: subcategoryId && !String(subcategoryId).startsWith(DIRECT_PREFIX) ? String(subcategoryId) : null }
       : node)
     saveNodes(next)
+    return true
   }
 
   const renameCategory = (categoryId, name) => {
@@ -325,21 +347,33 @@
     saveGroups(reorderGroups(groups, orgUnitId, ordered))
   }
 
+  /**
+   * Unterkategorien einer OrgEinheit.
+   *
+   * Ohne Bearbeitungsrecht wird eine reine Lesedarstellung erzeugt: keine
+   * Eingabefelder, keine Schaltflächen und kein Ziehgriff. Zuvor wurden
+   * dieselben Bedienelemente lediglich `disabled` ausgegeben – sie waren damit
+   * weder erreichbar noch erklärt und legten eine Bearbeitung nahe, die diese
+   * Rolle nicht besitzt.
+   */
   const renderGroupRows = (orgUnitId) => {
     const groups = groupsForUnit(loadGroups(), orgUnitId)
+    const editable = canEdit()
     return groups.map((group, index) => `
-      <article class="mw-person-group-row ${isDirectGroup(group) ? 'is-direct' : ''}" draggable="${canEdit() ? 'true' : 'false'}" data-person-group-row="${escapeHtml(group.id)}">
-        <span class="mw-person-group-drag" aria-hidden="true">☰</span>
+      <article class="mw-person-group-row ${isDirectGroup(group) ? 'is-direct' : ''}${editable ? '' : ' is-readonly'}" draggable="${editable ? 'true' : 'false'}" data-person-group-row="${escapeHtml(group.id)}">
+        ${editable ? '<span class="mw-person-group-drag" aria-hidden="true">☰</span>' : '<span class="mw-person-group-position" aria-hidden="true">' + (index + 1) + '</span>'}
         <div class="mw-person-group-row-main">
           ${isDirectGroup(group)
             ? `<strong>Direkt zugeordnet</strong><small>Personen ohne Unterkategorie</small>`
-            : `<label><span>Unterkategorie</span><input value="${escapeHtml(group.name)}" data-person-group-name="${escapeHtml(group.id)}" ${canEdit() ? '' : 'disabled'}></label>`}
+            : editable
+              ? `<label><span>Unterkategorie</span><input value="${escapeHtml(group.name)}" data-person-group-name="${escapeHtml(group.id)}"></label>`
+              : `<strong data-person-group-name-text="${escapeHtml(group.id)}">${escapeHtml(group.name)}</strong><small>Unterkategorie · Position ${index + 1} von ${groups.length}</small>`}
         </div>
-        <div class="mw-person-group-row-actions">
-          <button type="button" class="btn btn-ghost btn-small" data-person-group-up="${escapeHtml(group.id)}" ${!canEdit() || index === 0 ? 'disabled' : ''} aria-label="Nach oben">↑</button>
-          <button type="button" class="btn btn-ghost btn-small" data-person-group-down="${escapeHtml(group.id)}" ${!canEdit() || index === groups.length - 1 ? 'disabled' : ''} aria-label="Nach unten">↓</button>
-          ${isDirectGroup(group) ? '' : `<button type="button" class="btn btn-danger btn-small" data-person-group-delete="${escapeHtml(group.id)}" ${canEdit() ? '' : 'disabled'}>Löschen</button>`}
-        </div>
+        ${editable ? `<div class="mw-person-group-row-actions">
+          <button type="button" class="btn btn-ghost btn-small" data-person-group-up="${escapeHtml(group.id)}" ${index === 0 ? 'disabled' : ''} aria-label="Nach oben">↑</button>
+          <button type="button" class="btn btn-ghost btn-small" data-person-group-down="${escapeHtml(group.id)}" ${index === groups.length - 1 ? 'disabled' : ''} aria-label="Nach unten">↓</button>
+          ${isDirectGroup(group) ? '' : `<button type="button" class="btn btn-danger btn-small" data-person-group-delete="${escapeHtml(group.id)}">Löschen</button>`}
+        </div>` : ''}
       </article>`).join('')
   }
 
@@ -349,16 +383,20 @@
     const assignments = loadAssignments()
     const leaderIds = activeLeaderIdsForUnit(assignments, orgUnitId)
     if (!people.length) return '<p class="mw-person-groups-empty">Dieser OrgEinheit sind derzeit keine Personen direkt zugeordnet.</p>'
+    const editable = canEdit()
     return people.map((person) => {
       const category = groups.find((group) => group.id === person.subcategoryId && !isDirectGroup(group))
       const selected = category?.id || directId(orgUnitId)
+      const selectedName = groups.find((group) => group.id === selected)?.name || 'Direkt zugeordnet'
       const leader = leaderIds.has(String(person.id))
       return `
-        <article class="mw-person-assignment-row">
+        <article class="mw-person-assignment-row${editable ? '' : ' is-readonly'}">
           <div><strong>${escapeHtml(person.name)}</strong><span>${escapeHtml(person.role || 'Mitarbeitende Person')}</span>${leader ? '<em>Leitungsfunktion – wird nicht in der Mitarbeitendenliste angezeigt</em>' : ''}</div>
-          <label><span>Interne Zuordnung</span><select data-person-subcategory-person="${escapeHtml(person.id)}" ${canEdit() ? '' : 'disabled'}>
+          ${editable
+            ? `<label><span>Interne Zuordnung</span><select data-person-subcategory-person="${escapeHtml(person.id)}">
             ${groups.map((group) => `<option value="${escapeHtml(group.id)}" ${group.id === selected ? 'selected' : ''}>${escapeHtml(group.name)}</option>`).join('')}
-          </select></label>
+          </select></label>`
+            : `<div class="mw-person-assignment-readonly"><span>Interne Zuordnung</span><strong data-person-subcategory-text="${escapeHtml(person.id)}">${escapeHtml(selectedName)}</strong></div>`}
         </article>`
     }).join('')
   }
@@ -376,6 +414,7 @@
           <span>Interne Gliederung der OrgEinheit</span>
           <h2>Unterkategorien und Mitarbeitende</h2>
           <p>Unterkategorien erzeugen weder eigene OrgEinheiten noch Leitungsfunktionen. Ihre Reihenfolge wird je OrgEinheit manuell festgelegt; Personen innerhalb einer Kategorie werden automatisch nach Nachname sortiert.</p>
+          ${canEdit() ? '' : `<p class="mw-person-groups-readonly-badge" data-person-groups-readonly>Nur-Lese-Ansicht für die Rolle „${escapeHtml(roleLabel())}“. Das Auswahlfeld wechselt nur die betrachtete OrgEinheit und ändert keine Daten.</p>`}
         </header>
         <label class="field mw-person-groups-unit-select"><span>OrgEinheit auswählen</span><select data-person-groups-unit>
           ${units().map((unit) => `<option value="${escapeHtml(unit.id)}" ${String(unit.id) === String(orgUnitId) ? 'selected' : ''}>${escapeHtml(unit.name)}</option>`).join('')}
@@ -383,9 +422,11 @@
         <div class="mw-person-groups-layout">
           <section class="mw-person-groups-panel">
             <div class="mw-person-groups-panel-head"><div><span>Darstellung im Kästchen</span><h3>${escapeHtml(unitName(orgUnitId))}</h3></div><strong>${groupsForUnit(loadGroups(), orgUnitId).length} Bereiche</strong></div>
-            <p>Die Reihenfolge kann per Drag-and-drop oder mit den Pfeiltasten verändert werden. „Direkt zugeordnet“ ist ein Systembereich und kann ebenfalls frei positioniert werden.</p>
+            <p>${canEdit()
+              ? 'Die Reihenfolge kann per Drag-and-drop oder mit den Pfeiltasten verändert werden. „Direkt zugeordnet“ ist ein Systembereich und kann ebenfalls frei positioniert werden.'
+              : 'Die festgelegte Reihenfolge wird hier in der Anzeigefolge dargestellt. „Direkt zugeordnet“ ist ein Systembereich.'}</p>
             <div class="mw-person-group-list" data-person-group-list>${renderGroupRows(orgUnitId)}</div>
-            ${canEdit() ? `<form class="mw-person-group-add" data-person-group-add><label class="field"><span>Neue Unterkategorie</span><input name="name" placeholder="z. B. Recruiting" autocomplete="off"></label><button type="submit" class="btn btn-primary">Hinzufügen</button><p data-person-group-message></p></form>` : '<p class="mw-person-groups-readonly">Die aktive Rolle darf die Struktur ansehen, aber nicht bearbeiten.</p>'}
+            ${canEdit() ? `<form class="mw-person-group-add" data-person-group-add><label class="field"><span>Neue Unterkategorie</span><input name="name" placeholder="z. B. Recruiting" autocomplete="off"></label><button type="submit" class="btn btn-primary">Hinzufügen</button><p data-person-group-message></p></form>` : `<p class="mw-person-groups-readonly">Die Rolle „${escapeHtml(roleLabel())}“ darf die Struktur ansehen, aber nicht bearbeiten. Es werden deshalb keine Eingabefelder angeboten.</p>`}
           </section>
           <section class="mw-person-groups-panel">
             <div class="mw-person-groups-panel-head"><div><span>Personenzuordnung</span><h3>Mitarbeitende</h3></div><strong>${peopleForUnit(orgUnitId).length} Personen</strong></div>

@@ -61,3 +61,10 @@
 
 @media(max-width:1050px){.mw-person-groups-layout{grid-template-columns:1fr}}
 @media(max-width:700px){.node.mw-people-compact-card{width:290px}.mw-person-assignment-row{grid-template-columns:1fr}.mw-person-group-row{grid-template-columns:24px 1fr}.mw-person-group-row-actions{grid-column:2}.mw-person-group-add{grid-template-columns:1fr}.mw-person-group-add p{grid-column:auto}}
+
+/* Nur-Lese-Darstellung ohne Bearbeitungsrecht. */
+.mw-person-groups-readonly-badge{margin:10px 0 0;border-left:6px solid var(--blue,#99e7ff);padding:10px 14px;background:#f2fbfd;color:#686679;font-size:14px;line-height:1.45}
+.mw-person-group-position{display:grid;place-items:center;min-width:24px;color:#686679;font-size:13px;font-weight:800}
+.mw-person-group-row.is-readonly{grid-template-columns:24px 1fr}
+.mw-person-assignment-readonly{display:grid;gap:4px}
+.mw-person-assignment-readonly span{color:#686679;font-size:13px}
