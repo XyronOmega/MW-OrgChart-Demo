@@ -45,6 +45,9 @@ jobs:
           grep -F 'person-groups.js?v=1' index.html
           grep -F 'navigation-shell.css?v=1' index.html
           grep -F 'navigation-shell.js?v=1' index.html
+          grep -F 'mobile-ui.css?v=1' index.html
+          grep -F 'mobile-ui-core.js?v=1' index.html
+          grep -F 'mobile-ui-runtime.js?v=1' index.html
 
       - name: Verify demo makes no backend calls
         run: |
