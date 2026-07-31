@@ -183,12 +183,14 @@ describe('Leser-Rechte', () => {
     const page = await openPage()
     await login(page, 'editor')
     assert.ok(await openView(page, 'Unterkategorien'))
+    // Seit der Umstellung auf feste Bearbeitungsmasken ersetzt der Einstieg in
+    // die Maske das frühere Formular am Seitenende.
     const befund = await page.evaluate(() => ({
-      formular: !!document.querySelector('[data-person-group-add]'),
+      maskeAnlegen: !!document.querySelector('[data-person-group-create]'),
       ziehbar: document.querySelectorAll('[draggable="true"]').length,
       zuordnung: document.querySelectorAll('[data-person-subcategory-person]').length,
     }))
-    assert.ok(befund.formular, 'Der Bearbeitungsrolle fehlt das Formular für neue Unterkategorien.')
+    assert.ok(befund.maskeAnlegen, 'Der Bearbeitungsrolle fehlt der Einstieg in die Maske für neue Unterkategorien.')
     assert.ok(befund.ziehbar > 0, 'Der Bearbeitungsrolle fehlen die ziehbaren Zeilen.')
     assert.ok(befund.zuordnung > 0, 'Der Bearbeitungsrolle fehlen die Zuordnungsfelder.')
     await page.close()
