@@ -39,6 +39,7 @@ jobs:
           grep -F 'changeset-demo.css?v=1' index.html
           grep -F 'changeset-demo.js?v=1' index.html
           grep -F 'orgchart-navigation.css?v=1' index.html
+          grep -F 'orgchart-navigation-bootstrap.js?v=1' index.html
           grep -F 'orgchart-navigation.js?v=1' index.html
 
       - name: Verify demo makes no backend calls
