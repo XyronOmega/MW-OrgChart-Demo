@@ -646,7 +646,9 @@
   window.addEventListener('mw-demo-nodes-changed', scheduleEnhance)
   window.addEventListener('mw-demo-person-groups-changed', scheduleEnhance)
   window.addEventListener('storage', scheduleEnhance)
-  new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true })
+  // Zentraler Lebenszyklus statt eines eigenen Beobachters auf document.body.
+  if (window.MWUiLifecycle) window.MWUiLifecycle.watch(scheduleEnhance)
+  else new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true })
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleEnhance)
   else scheduleEnhance()

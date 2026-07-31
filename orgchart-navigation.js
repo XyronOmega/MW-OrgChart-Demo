@@ -901,14 +901,17 @@
       preSearchSnapshot = null
       preFocusSnapshot = null
     }, true)
-    new MutationObserver(() => {
+    // Zentraler Lebenszyklus statt eines eigenen Beobachters auf document.body.
+    const scheduleEnhance = () => {
       if (scheduled) return
       scheduled = true
       window.requestAnimationFrame(() => {
         scheduled = false
         enhanceChart()
       })
-    }).observe(document.body, { childList: true, subtree: true })
+    }
+    if (window.MWUiLifecycle) window.MWUiLifecycle.watch(scheduleEnhance)
+    else new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true })
     enhanceChart()
   }
 

@@ -287,7 +287,9 @@
     scheduled = true
     requestAnimationFrame(() => { scheduled = false; enhanceUnitsView() })
   }
-  new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true })
+  // Zentraler Lebenszyklus statt eines eigenen Beobachters auf document.body.
+  if (window.MWUiLifecycle) window.MWUiLifecycle.watch(scheduleEnhance)
+  else new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true })
   scheduleEnhance()
   returnAfterReload()
 })()
