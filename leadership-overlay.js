@@ -96,8 +96,18 @@
     return stored.map(normalizeAssignment).filter((entry) => entry.personId && entry.orgUnitId && entry.leadershipRole)
   }
 
+  /**
+   * Schreibt Leitungsmandate. Die Rechteprüfung liegt hier und nicht nur in
+   * der Darstellung: Auch ein nachträglich aktiviertes Bedienelement kann
+   * ohne Bearbeitungsrecht nichts speichern.
+   */
   const saveAssignments = (assignments) => {
+    if (!canEdit()) {
+      console.warn('[leadership] Die aktive Rolle darf Leitungsfunktionen nicht ändern.')
+      return false
+    }
     localStorage.setItem(ASSIGNMENT_KEY, JSON.stringify(assignments.map(normalizeAssignment)))
+    return true
   }
 
   const loadNodes = () => {
@@ -173,8 +183,15 @@
   let editingAssignmentId = null
   let lastOpenedPersonId = null
 
-  const role = () => document.getElementById('roleSelect')?.value || 'viewer'
-  const canEdit = () => ['editor', 'admin', 'superadmin'].includes(role())
+  // Rollenauskunft aus dem gemeinsamen Vokabular (roles.js). Der Rückfall
+  // entspricht dem bisherigen Verhalten, falls das Modul nicht geladen ist.
+  const role = () => globalThis.MWRoles?.currentRoleId()
+    || document.getElementById('roleSelect')?.value
+    || 'viewer'
+  const canEdit = () => (globalThis.MWRoles
+    ? globalThis.MWRoles.canEditStructure()
+    : ['editor', 'admin', 'superadmin'].includes(role()))
+  const roleLabel = () => globalThis.MWRoles?.label(role()) || role()
   const nodes = () => loadNodes()
   const people = () => nodes().filter((node) => node.type === 'person').sort((a, b) => a.name.localeCompare(b.name, 'de'))
   const units = () => nodes().filter((node) => node.type !== 'person').sort((a, b) => a.name.localeCompare(b.name, 'de'))
@@ -326,7 +343,7 @@
     const unitAssignments = assignmentsForUnit(assignments, selectedUnitId)
     content.innerHTML = `
       <section class="leadership-center" data-leadership-page>
-        <header class="leadership-page-heading"><span>Personen und OrgEinheiten</span><h2>Leitungsfunktionen</h2><p>Mitgliedschaft und Leitung sind getrennte Beziehungen. Mehrere gleichzeitige Leitungsmandate und Personalunionen sind möglich.</p></header>
+        <header class="leadership-page-heading"><span>Personen und OrgEinheiten</span><h2>Leitungsfunktionen</h2><p>Mitgliedschaft und Leitung sind getrennte Beziehungen. Mehrere gleichzeitige Leitungsmandate und Personalunionen sind möglich.</p>${canEdit() ? '' : `<p class="leadership-readonly-badge" data-leadership-readonly>Nur-Lese-Ansicht für die Rolle „${escapeHtml(roleLabel())}“. Die beiden Auswahlfelder wechseln nur die Betrachtungsperspektive und ändern keine Daten.</p>`}</header>
         <div class="leadership-perspectives">
           <section class="leadership-perspective">
             <label class="field"><span>Person auswählen</span><select data-leadership-person>${people().map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === selectedPersonId ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>
@@ -339,7 +356,7 @@
             <div class="leadership-card-list">${unitAssignments.length ? unitAssignments.map((entry) => assignmentCard(entry, 'unit')).join('') : '<p class="leadership-empty">Keine Leitung hinterlegt.</p>'}</div>
           </section>
         </div>
-        ${canEdit() ? renderForm() : '<p class="leadership-readonly">Die aktive Rolle darf Leitungsfunktionen ansehen, aber nicht bearbeiten.</p>'}
+        ${canEdit() ? renderForm() : `<p class="leadership-readonly">Die Rolle „${escapeHtml(roleLabel())}“ darf Leitungsfunktionen ansehen, aber nicht bearbeiten. Es werden deshalb keine Eingabefelder für Leitungsmandate angeboten.</p>`}
       </section>`
 
     content.querySelector('[data-leadership-person]')?.addEventListener('change', (event) => {

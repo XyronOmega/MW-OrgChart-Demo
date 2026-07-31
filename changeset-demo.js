@@ -13,16 +13,26 @@
 
   // --- Rollen und Rechte ---------------------------------------------------
 
-  const rolePermissions = {
+  /*
+   * Rollen, Beschriftungen und Rechte stammen aus dem gemeinsamen Vokabular
+   * (roles.js). Die hier stehenden Werte sind nur noch der Rückfall, falls das
+   * Modul nicht geladen ist; sie stimmen mit ihm überein.
+   */
+  const fallbackPermissions = {
     viewer: ['view', 'preview'],
     editor: ['view', 'create', 'submit', 'preview'],
     admin: ['view', 'create', 'submit', 'review', 'publish', 'withdraw', 'preview', 'users'],
     superadmin: ['view', 'create', 'submit', 'review', 'publish', 'withdraw', 'rollback', 'preview', 'users'],
   }
-  const roleLabels = { viewer: 'Leser', editor: 'Bereichsredaktion', admin: 'Administrator', superadmin: 'Superadministrator' }
-  const roleNames = { viewer: 'Alex Beispiel', editor: 'Mika Muster', admin: 'Robin Demo', superadmin: 'Sam Test' }
+  const rolePermissions = globalThis.MWRoles?.permissions || fallbackPermissions
+  const roleLabels = globalThis.MWRoles?.labels
+    || { viewer: 'Leser', editor: 'Bereichsredaktion', admin: 'Administrator', superadmin: 'Superadministrator' }
+  const roleNames = globalThis.MWRoles?.demoPersons
+    || { viewer: 'Alex Beispiel', editor: 'Mika Muster', admin: 'Robin Demo', superadmin: 'Sam Test' }
 
-  const currentRole = () => document.getElementById('roleSelect')?.value || 'viewer'
+  const currentRole = () => globalThis.MWRoles?.currentRoleId()
+    || document.getElementById('roleSelect')?.value
+    || 'viewer'
   const can = (permission) => (rolePermissions[currentRole()] || []).includes(permission)
 
   // --- Statusmodell --------------------------------------------------------

@@ -142,7 +142,15 @@
   let settings = loadSettings()
   let currentPlatformView = null
 
-  const isSuperadmin = () => /superadmin/i.test(document.getElementById('userRole')?.textContent || '')
+  /*
+   * Zuvor wurde das Superadministrationsrecht aus dem sichtbaren Text der
+   * Kopfzeile abgeleitet (`/superadmin/i`). Eine geänderte Beschriftung hätte
+   * dort unbemerkt Rechte entzogen. Maßgeblich ist jetzt – wie in allen übrigen
+   * Modulen – die Rollenkennung aus dem gemeinsamen Vokabular (roles.js).
+   */
+  const isSuperadmin = () => (globalThis.MWRoles
+    ? globalThis.MWRoles.isSuperadmin()
+    : /superadmin/i.test(document.getElementById('userRole')?.textContent || ''))
   const definitionFor = (typeId) => definitions.find((definition) => definition.id === typeId) || definitions.find((definition) => definition.id === 'person')
   const countFor = (typeId) => loadNodes().filter((node) => (node.organizationTypeId || node.type) === typeId).length
 
