@@ -64,6 +64,13 @@ test('Leitung derselben OrgEinheit wird aus den Mitarbeitendengruppen entfernt',
   assert.equal(result.groups.flatMap((group) => group.people).some((person) => person.id === 'p2'), false)
 })
 
+test('Leitung wird auch bei organisatorischer Zuordnung zu einer anderen Einheit angezeigt', () => {
+  const result = api.groupPeople(nodes, groups, [...assignments, {
+    personId: 'p4', orgUnitId: 'department', leadershipRole: 'Stellvertretung', validFrom: '2026-01-01', validTo: null,
+  }], 'department', new Date('2026-07-01'))
+  assert.deepEqual(result.leaders.map((person) => person.id), ['p2', 'p4'])
+})
+
 test('Leitung in einer anderen OrgEinheit verändert die Mitarbeitendenanzeige nicht', () => {
   const result = api.groupPeople(nodes, groups, assignments, 'department', new Date('2026-07-01'))
   assert.equal(result.groups.flatMap((group) => group.people).some((person) => person.id === 'p1'), true)
