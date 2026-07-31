@@ -40,18 +40,23 @@ jobs:
       - name: Verify assets are loaded
         run: |
           grep -F 'platform-admin.css?v=1' index.html
-          grep -F 'platform-admin.js?v=2' index.html
+          grep -F 'platform-admin.js?v=3' index.html
           grep -F 'organization-unit-editor.js?v=3' index.html
           grep -F 'changeset-demo.css?v=1' index.html
-          grep -F 'changeset-demo.js?v=1' index.html
+          grep -F 'changeset-demo.js?v=2' index.html
           grep -F 'orgchart-navigation.css?v=1' index.html
           grep -F 'orgchart-navigation-bootstrap.js?v=2' index.html
           grep -F 'orgchart-navigation.js?v=2' index.html
-          grep -F 'person-groups.css?v=1' index.html
-          grep -F 'person-groups.js?v=2' index.html
+          grep -F 'person-groups.css?v=2' index.html
+          grep -F 'person-groups.js?v=3' index.html
           grep -F 'navigation-shell.css?v=1' index.html
           grep -F 'navigation-shell.js?v=2' index.html
           grep -F 'ui-lifecycle.js?v=1' index.html
+          grep -F 'leadership-overlay.css?v=3' index.html
+          grep -F 'leadership-overlay.js?v=4' index.html
+          grep -F 'roles.js?v=1' index.html
+          grep -F 'accessibility.css?v=1' index.html
+          grep -F 'accessibility.js?v=1' index.html
 
       - name: Verify demo makes no backend calls
         run: |

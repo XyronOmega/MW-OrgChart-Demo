@@ -306,3 +306,14 @@
     grid-column: auto;
   }
 }
+
+/* Hinweis auf die Nur-Lese-Ansicht im Kopf der Seite „Leitungsfunktionen“. */
+.leadership-readonly-badge {
+  margin: 10px 0 0;
+  border-left: 6px solid var(--blue, #99e7ff);
+  padding: 10px 14px;
+  background: #f2fbfd;
+  color: var(--muted, #686679);
+  font-size: 14px;
+  line-height: 1.45;
+}

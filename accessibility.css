@@ -1,0 +1,124 @@
+/**
+ * Zeigerziele nach WCAG 2.1 Erfolgskriterium 2.5.5 (mindestens 44 x 44 CSS-Pixel).
+ *
+ * Diese Datei wird als letztes Stylesheet geladen und hebt ausschließlich
+ * Mindestgrößen und Abstände an. Farben, Schriften, Rahmen und Anordnung
+ * bleiben unverändert – es ist bewusst keine Gestaltungsänderung.
+ *
+ * Messwerte vor der Änderung (Rolle Administrator, 1440 px):
+ *   16x  .demo-unit-leader-name     49 x 13
+ *   14x  .org-node-toggle           27 x 27
+ *   14x  .org-node-focus            27 x 27
+ *   10x  .btn-small                 30 x 34
+ *    2x  .btn                      133 x 40
+ *    1x  .org-view-controls select 180 x 34
+ */
+
+:root {
+  --mw-touch-target: 44px;
+}
+
+/* --- Schaltflächen und Formularfelder der Standardoberfläche -------------- */
+
+.btn,
+.nav button,
+#nav .mw-sub-navigation-item,
+.drawer-close {
+  min-height: var(--mw-touch-target);
+}
+
+/* Kleine Schaltflächen behalten ihre Schriftgröße, erhalten aber eine
+   ausreichende Bedienfläche. */
+.btn-small {
+  min-width: var(--mw-touch-target);
+  min-height: var(--mw-touch-target);
+  padding: 6px 12px;
+}
+
+select,
+textarea,
+input:not([type='checkbox']):not([type='radio']):not([type='hidden']) {
+  min-height: var(--mw-touch-target);
+}
+
+.org-view-controls select,
+.mw-person-assignment-row select {
+  min-height: var(--mw-touch-target);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  width: 24px;
+  height: 24px;
+}
+
+/* --- Steuerelemente auf den Organigramm-Karten ---------------------------- */
+
+/*
+ * Die Zoom- und Fokus-Schaltflächen liegen als kompakte Überlagerung auf der
+ * Karte. Statt sie sichtbar zu vergrößern – was die Karte überdecken würde –
+ * wird die Bedienfläche über ein Pseudoelement auf 44 x 44 Pixel erweitert.
+ * Der Abstand der Schaltflächen wächst entsprechend mit, damit sich die
+ * Bedienflächen nicht überlappen (28 px Breite + 16 px Abstand = 44 px Raster).
+ */
+.org-node-controls {
+  gap: 16px;
+}
+
+.org-node-control {
+  position: relative;
+}
+
+.org-node-control::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--mw-touch-target));
+  height: var(--mw-touch-target);
+  transform: translate(-50%, -50%);
+}
+
+/*
+ * Die Namen der Leitungsfunktionen auf der Karte waren nur 13 Pixel hoch.
+ * Auch hier wird die Bedienfläche über ein Pseudoelement erweitert, statt die
+ * Schrift zu vergrößern – die Karten behalten ihre Gestaltung.
+ *
+ * Damit sich die Bedienflächen mehrerer Leitungen nicht überlappen, wächst der
+ * Zeilenabstand auf 31 Pixel (13 px Textzeile + 31 px Abstand = 44 px Raster).
+ * Der Abstand wird nur zwischen Zeilen wirksam: Karten mit genau einer Leitung
+ * behalten ihre bisherige Höhe.
+ */
+.demo-unit-leadership:not(.demo-unit-leadership--empty) {
+  gap: 31px;
+}
+
+.demo-unit-leader-name {
+  position: relative;
+}
+
+.demo-unit-leader-name::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: max(100%, var(--mw-touch-target));
+  height: var(--mw-touch-target);
+  transform: translateY(-50%);
+}
+
+/* --- Schmale Darstellungen ------------------------------------------------ */
+
+@media (max-width: 768px) {
+  .btn,
+  .btn-small,
+  .nav button,
+  #nav .mw-sub-navigation-item,
+  .drawer-close {
+    min-height: var(--mw-touch-target);
+  }
+
+  .header-actions .btn-small {
+    min-width: var(--mw-touch-target);
+  }
+}
