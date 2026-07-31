@@ -1,0 +1,33 @@
+.demo-type-color-admin { display: grid; gap: 22px; }
+.demo-type-color-heading { max-width: 900px; }
+.demo-type-color-heading h2 { margin-bottom: 8px; }
+.demo-type-color-heading p { margin: 0; color: #57546f; line-height: 1.55; }
+.demo-type-color-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.demo-type-color-card { display: grid; gap: 14px; padding: 20px; background: #fff; border: 1px solid #dddde5; box-shadow: 0 4px 16px rgba(7, 0, 66, .06); }
+.demo-type-color-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.demo-type-color-card-head h3 { margin: 4px 0 0; }
+.demo-type-color-count { padding: 7px 9px; background: #f3f5f6; border-left: 4px solid #99e7ff; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.demo-type-color-preview { display: flex; min-height: 132px; overflow: hidden; border: 1px solid; box-shadow: 0 7px 18px rgba(7, 0, 66, .10); }
+.demo-type-color-preview > i { width: 10px; flex: 0 0 auto; }
+.demo-type-color-preview > div { display: flex; flex-direction: column; gap: 7px; padding: 18px; }
+.demo-type-color-preview small { font-size: 10px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; opacity: .72; }
+.demo-type-color-preview strong { font-size: 19px; }
+.demo-type-color-preview span { font-size: 13px; opacity: .8; }
+.demo-type-color-picker { display: grid; gap: 8px; font-weight: 750; }
+.demo-type-color-picker > div { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 10px; background: #f5f6f7; border-left: 5px solid #99e7ff; }
+.demo-type-color-picker input { width: 58px; height: 36px; padding: 0; border: 1px solid #c8c8d1; background: #fff; cursor: pointer; }
+.demo-type-color-picker code { padding: 6px 8px; background: #fff; color: #070042; font-weight: 800; }
+.demo-type-color-actions { display: flex; justify-content: flex-end; padding-top: 18px; border-top: 1px solid #dedee5; }
+.demo-type-color-message { margin: 0; padding: 14px 16px; background: #effff0; border-left: 5px solid #a8ffab; color: #070042; font-weight: 750; }
+.node[data-type] .node-body,
+.node[data-type] .node-title,
+.node[data-type] .node-subtitle,
+.node[data-type] .node-role,
+.node[data-type] strong,
+.node[data-type] span { color: inherit !important; }
+@media (max-width: 1100px) { .demo-type-color-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .demo-type-color-grid { grid-template-columns: 1fr; }
+  .demo-type-color-card-head { flex-direction: column; }
+  .demo-type-color-actions button { width: 100%; }
+}

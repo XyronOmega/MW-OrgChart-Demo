@@ -1,0 +1,11 @@
+{
+  "name": "mw-orgchart-demo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Statische, anonymisierte Live-Demo des MW OrgChart",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check app.js && node --check leadership-overlay.js && node --check platform-admin.js && node --check organization-unit-editor.js && node --check organization-type-colors.js && node --check changeset-demo.js"
+  }
+}

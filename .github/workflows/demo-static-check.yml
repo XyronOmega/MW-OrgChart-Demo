@@ -1,21 +1,24 @@
 name: Demo static quality
 
+# Prüft den Quellstand in diesem Branch. Zuvor wurde der bereits
+# veröffentlichte gh-pages-Branch geprüft; seit die Quellen in main liegen,
+# wird hier der Stand geprüft, der anschließend veröffentlicht wird.
+
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  check-published-demo:
+  check-demo-source:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout published gh-pages branch
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: gh-pages
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -23,14 +26,24 @@ jobs:
           node-version: 24
 
       - name: Check JavaScript syntax
-        run: |
-          node --check app.js
-          node --check leadership-overlay.js
-          node --check platform-admin.js
-          node --check organization-unit-editor.js
+        run: npm run check
 
-      - name: Verify platform assets are loaded
+      - name: Run tests
+        run: npm test
+
+      - name: Verify assets are loaded
         run: |
           grep -F 'platform-admin.css?v=1' index.html
           grep -F 'platform-admin.js?v=1' index.html
           grep -F 'organization-unit-editor.js?v=2' index.html
+          grep -F 'changeset-demo.css?v=1' index.html
+          grep -F 'changeset-demo.js?v=1' index.html
+
+      - name: Verify demo makes no backend calls
+        run: |
+          if grep -rnE "fetch\(|XMLHttpRequest|/api/" --include='*.js' --include='*.html' . \
+             | grep -v '^./test/' | grep -v node_modules; then
+            echo "Die Demo darf keine Backend-Aufrufe enthalten."
+            exit 1
+          fi
+          echo "Keine Backend-Aufrufe gefunden."

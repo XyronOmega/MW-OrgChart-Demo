@@ -1,0 +1,55 @@
+name: Publish demo
+
+# Veröffentlicht den Stand aus main unverändert nach gh-pages. Die bestehende
+# Adresse https://xyronomega.github.io/MW-OrgChart-Demo/ bleibt erhalten, weil
+# GitHub Pages weiterhin aus gh-pages ausgeliefert wird.
+#
+# Alle Verweise in index.html sind relativ, dadurch funktioniert der
+# Projektpfad /MW-OrgChart-Demo/ ohne zusätzliche Konfiguration.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-demo
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Collect files to publish
+        run: |
+          mkdir -p dist
+          cp index.html styles.css *.js *.css dist/
+          rm -f dist/*.test.js
+          cp README.md dist/
+          touch dist/.nojekyll
+          ls -1 dist
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist
+          publish_branch: gh-pages
+          commit_message: "demo: publish from main"
