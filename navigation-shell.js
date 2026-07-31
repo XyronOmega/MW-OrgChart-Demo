@@ -92,8 +92,18 @@
   let activeGroup = null
   let scheduled = false
   let rebuilding = false
+  let suppressClickRebuild = false
   let observedNav = null
   let navObserver = null
+  let lastSignature = ''
+
+  // Schutz gegen unkontrollierte Renderschleifen: Zu viele Durchläufe in Folge
+  // deuten auf eine Rückkopplung hin. Dann wird die Beobachtung beendet, statt
+  // den Haupt-Thread zu blockieren.
+  const REBUILD_BUDGET = 30
+  let rebuildsInWindow = 0
+  let budgetTimer = null
+  let loopReported = false
 
   const readJson = (key, fallback) => {
     try {
@@ -106,6 +116,38 @@
 
   const writeJson = (key, value) => {
     try { sessionStorage.setItem(key, JSON.stringify(value)) } catch { /* optional browser storage */ }
+  }
+
+  /**
+   * Schreibende Helfer, die nur bei tatsächlicher Änderung schreiben.
+   *
+   * Notwendig, weil Browser auch bei wertgleichen Schreibvorgängen einen
+   * MutationRecord erzeugen: `classList.add` eines bereits vorhandenen Tokens
+   * und `element.hidden = true` bei bereits gesetztem `hidden` melden eine
+   * Änderung. Genau daraus entstand die frühere Endlosschleife.
+   */
+  const setClass = (element, token, shouldHave) => {
+    if (element.classList.contains(token) === shouldHave) return false
+    element.classList.toggle(token, shouldHave)
+    return true
+  }
+
+  const setHidden = (element, shouldHide) => {
+    if (element.hidden === shouldHide) return false
+    element.hidden = shouldHide
+    return true
+  }
+
+  const setAttr = (element, name, value) => {
+    if (element.getAttribute(name) === value) return false
+    element.setAttribute(name, value)
+    return true
+  }
+
+  const setTabIndex = (element, value) => {
+    if (element.tabIndex === value) return false
+    element.tabIndex = value
+    return true
   }
 
   const buttonDescriptor = (button) => ({
@@ -121,7 +163,7 @@
     .filter((button) => !button.dataset.mwMainGroup)
 
   const ensureShell = (nav) => {
-    nav.classList.add('mw-navigation-shell')
+    setClass(nav, 'mw-navigation-shell', true)
 
     let main = nav.querySelector(':scope > .mw-main-navigation')
     if (!main) {
@@ -177,24 +219,33 @@
       const groupId = button.dataset.mwMainGroup
       const isAvailable = available.has(groupId)
       const isActive = isAvailable && groupId === activeGroup
-      button.hidden = !isAvailable
-      button.classList.toggle('active', isActive)
-      button.classList.toggle('is-active', isActive)
-      button.setAttribute('aria-selected', String(isActive))
-      button.tabIndex = isActive ? 0 : -1
+      setHidden(button, !isAvailable)
+      setClass(button, 'active', isActive)
+      setClass(button, 'is-active', isActive)
+      setAttr(button, 'aria-selected', String(isActive))
+      setTabIndex(button, isActive ? 0 : -1)
     })
 
     sub.querySelectorAll('[data-mw-subnav-group]').forEach((panel) => {
-      const show = panel.dataset.mwSubnavGroup === activeGroup && available.has(activeGroup)
-      panel.hidden = !show
+      setHidden(panel, !(panel.dataset.mwSubnavGroup === activeGroup && available.has(activeGroup)))
     })
 
     writeJson(ACTIVE_GROUP_KEY, activeGroup)
   }
 
+  /** Kennzeichnet den Sollzustand. Bei gleicher Signatur ist nichts zu tun. */
+  const signatureFor = (nav) => {
+    const buttons = actualButtons(nav)
+    return [
+      activeGroup,
+      buttons.map((button) => `${buttonKey(button)}|${groupForButton(button)}|${button.hidden ? 0 : 1}`).join(','),
+    ].join('#')
+  }
+
   const rebuild = () => {
     const nav = document.getElementById('nav')
     if (!nav || rebuilding) return
+    if (navObserver) navObserver.disconnect()
     rebuilding = true
     try {
       const { sub } = ensureShell(nav)
@@ -204,22 +255,40 @@
         const groupId = groupForButton(button)
         const panel = sub.querySelector(`[data-mw-subnav-group="${groupId}"]`)
         if (panel && button.parentElement !== panel) panel.append(button)
-        button.classList.add('mw-sub-navigation-item')
-        button.setAttribute('role', 'tab')
+        setClass(button, 'mw-sub-navigation-item', true)
+        setAttr(button, 'role', 'tab')
       })
 
-      const descriptors = buttons.map(buttonDescriptor)
-      updateActivePresentation(nav, descriptors)
+      updateActivePresentation(nav, buttons.map(buttonDescriptor))
+      lastSignature = signatureFor(nav)
     } finally {
       rebuilding = false
+      // Erst nach Abschluss aller eigenen Schreibvorgänge wieder beobachten,
+      // damit eigene Änderungen keinen weiteren Durchlauf auslösen.
+      if (navObserver && observedNav === nav) navObserver.observe(nav, { childList: true })
     }
   }
 
   const scheduleRebuild = () => {
     if (scheduled) return
+    rebuildsInWindow += 1
+    if (rebuildsInWindow > REBUILD_BUDGET) {
+      if (!loopReported) {
+        loopReported = true
+        navObserver?.disconnect()
+        console.warn('[navigation-shell] Zu viele Aktualisierungen in Folge – Beobachtung gestoppt.')
+      }
+      return
+    }
+    if (!budgetTimer) {
+      budgetTimer = setTimeout(() => { rebuildsInWindow = 0; budgetTimer = null }, 1000)
+    }
     scheduled = true
     queueMicrotask(() => {
       scheduled = false
+      const nav = document.getElementById('nav')
+      // Identische Anforderungen werden zusammengeführt.
+      if (nav && signatureFor(nav) === lastSignature && nav.querySelector(':scope > .mw-main-navigation')) return
       rebuild()
     })
   }
@@ -240,11 +309,19 @@
 
       if (button.dataset.mwMainGroup) {
         event.preventDefault()
+        if (suppressClickRebuild) return
         const groupId = button.dataset.mwMainGroup
         activeGroup = groupId
         writeJson(ACTIVE_GROUP_KEY, groupId)
         updateActivePresentation(nav, actualButtons(nav).map(buttonDescriptor))
-        visibleButtonForGroup(nav, groupId)?.click()
+        lastSignature = signatureFor(nav)
+        // Schutz gegen rekursive Klickketten: Der programmgesteuerte Klick auf
+        // die Unteransicht darf diesen Zweig nicht erneut auslösen.
+        const target = visibleButtonForGroup(nav, groupId)
+        if (target) {
+          suppressClickRebuild = true
+          try { target.click() } finally { suppressClickRebuild = false }
+        }
         return
       }
 
@@ -258,6 +335,11 @@
     }, true)
   }
 
+  /**
+   * Beobachtet ausschließlich das Hinzufügen und Entfernen von Buttons in #nav.
+   * Bewusst ohne `subtree` und ohne `attributes`: Die Attribute `class` und
+   * `hidden` schreibt dieses Modul selbst.
+   */
   const observeNav = () => {
     const nav = document.getElementById('nav')
     if (!nav) return
@@ -266,21 +348,20 @@
     navObserver?.disconnect()
     observedNav = nav
     navObserver = new MutationObserver(scheduleRebuild)
-    navObserver.observe(nav, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'hidden'],
-    })
+    navObserver.observe(nav, { childList: true })
   }
 
   const start = () => {
     observeNav()
     rebuild()
-    new MutationObserver(() => {
-      observeNav()
-      scheduleRebuild()
-    }).observe(document.body, { childList: true, subtree: true })
+    // Gezielte Ereignisse statt eines globalen Beobachters auf document.body.
+    ;['mw-demo-navigation-changed', 'mw-demo-role-changed', 'mw-demo-view-changed'].forEach((name) => {
+      document.addEventListener(name, () => { observeNav(); scheduleRebuild() })
+    })
+    // Nach dem Anmelden ersetzt app.js die Navigation vollständig.
+    document.getElementById('loginBtn')?.addEventListener('click', () => setTimeout(() => { observeNav(); scheduleRebuild() }, 0))
+    document.getElementById('switchRoleBtn')?.addEventListener('click', () => setTimeout(() => { observeNav(); scheduleRebuild() }, 0))
+    document.getElementById('resetBtn')?.addEventListener('click', () => setTimeout(() => { observeNav(); scheduleRebuild() }, 0))
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start)
