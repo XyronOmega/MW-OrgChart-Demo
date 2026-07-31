@@ -31,11 +31,27 @@ jobs:
       - name: Run tests
         run: npm test
 
+      # `npx playwright install` lädt nur die Browser herunter. Ohne das Paket
+      # selbst im Arbeitsverzeichnis scheitert `import('playwright')` in den
+      # Testdateien, und die Browsertests überspringen sich stillschweigend.
+      # `--no-save` hält das Projekt weiterhin abhängigkeitsfrei.
       - name: Install Playwright
-        run: npx --yes playwright@1 install --with-deps chromium
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
 
+      # Übersprungene Tests sind keine bestandenen Tests: Der Lauf muss die
+      # Browsertests tatsächlich ausgeführt haben.
       - name: Run browser and stability tests
-        run: npm run test:e2e
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee e2e.log
+          # Je nach Reporter lautet die Zeile "# skipped N" oder "ℹ skipped N".
+          if grep -qE 'skipped [1-9][0-9]*$' e2e.log; then
+            echo "Browsertests wurden übersprungen – Playwright war nicht verfügbar."
+            exit 1
+          fi
+          rm -f e2e.log
 
       - name: Verify assets are loaded
         run: |
@@ -60,8 +76,9 @@ jobs:
 
       - name: Verify demo makes no backend calls
         run: |
-          if grep -rnE "fetch\(|XMLHttpRequest|/api/" --include='*.js' --include='*.html' . \
-             | grep -v '^./test/' | grep -v node_modules; then
+          if grep -rnE "fetch\(|XMLHttpRequest|/api/" --include='*.js' --include='*.html' \
+             --exclude-dir=node_modules --exclude-dir=.git . \
+             | grep -v '^./test/'; then
             echo "Die Demo darf keine Backend-Aufrufe enthalten."
             exit 1
           fi
