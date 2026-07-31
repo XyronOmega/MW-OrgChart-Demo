@@ -109,7 +109,7 @@
     })
 
     return {
-      leaders: people.filter((person) => leaderIds.has(String(person.id))).sort(comparePeople),
+      leaders: nodes.filter((person) => person?.type === 'person' && leaderIds.has(String(person.id))).sort(comparePeople),
       groups: normalizedGroups.map((group) => ({ ...group, people: (byGroup.get(String(group.id)) || []).sort(comparePeople) })),
     }
   }
