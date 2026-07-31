@@ -43,6 +43,8 @@ jobs:
           grep -F 'orgchart-navigation.js?v=1' index.html
           grep -F 'person-groups.css?v=1' index.html
           grep -F 'person-groups.js?v=1' index.html
+          grep -F 'navigation-shell.css?v=1' index.html
+          grep -F 'navigation-shell.js?v=1' index.html
 
       - name: Verify demo makes no backend calls
         run: |
