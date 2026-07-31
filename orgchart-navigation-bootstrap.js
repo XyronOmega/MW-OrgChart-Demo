@@ -1,7 +1,8 @@
 /**
  * Verhindert rekursive MutationObserver-Aufrufe durch UI-Änderungen, die das
- * Navigationsmodul selbst erzeugt. Bereits laufende Observer der Basismodule
- * bleiben unverändert; der Filter gilt nur für danach erzeugte Observer.
+ * Navigationsmodul und die kompakte Personendarstellung selbst erzeugen.
+ * Bereits laufende Observer der Basismodule bleiben unverändert; der Filter
+ * gilt nur für danach erzeugte Observer.
  */
 (() => {
   const NativeMutationObserver = window.MutationObserver
@@ -12,6 +13,8 @@
     '[data-org-navigation-controls]',
     '.org-focus-bar',
     '.org-search-panel',
+    '.mw-person-group-overview',
+    '[data-person-groups-page]',
   ].join(',')
 
   window.MutationObserver = class MWFilteredMutationObserver extends NativeMutationObserver {
