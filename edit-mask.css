@@ -378,3 +378,19 @@
     flex-basis: 100%;
   }
 }
+
+/* Reine Hinweiszeilen eines Bereichs, etwa die Auswirkungen einer Änderung. */
+.mw-mask-notes {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--ink, #201f30);
+  line-height: 1.55;
+}
+
+.mw-mask-notes li + li {
+  margin-top: 4px;
+}
+
+.mw-mask-notes + .mw-mask-grid {
+  margin-top: 14px;
+}

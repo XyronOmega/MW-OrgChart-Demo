@@ -28,8 +28,27 @@ jobs:
       - name: Check JavaScript syntax
         run: npm run check
 
+      # Prettier wird vor den Tests bereitgestellt: Die Pruefung zur
+      # Reproduzierbarkeit der Formatierung laeuft auch als Teil von `npm test`
+      # und wuerde sich ohne das Paket stillschweigend ueberspringen.
+      #
+      # Achtung bei der Reihenfolge: Das Projekt fuehrt keine Abhaengigkeiten,
+      # deshalb entfernt jedes weitere `npm install --no-save` das zuvor
+      # installierte Paket wieder. Jeder Schritt installiert daher selbst, was
+      # er braucht, unmittelbar davor.
+      - name: Install Prettier
+        run: npm install --no-save prettier@3
+
+      # Uebersprungene Tests sind keine bestandenen Tests.
       - name: Run tests
-        run: npm test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee unit.log
+          if grep -qE 'skipped [1-9][0-9]*$' unit.log; then
+            echo "Einheitentests wurden uebersprungen – benoetigte Werkzeuge fehlen."
+            exit 1
+          fi
+          rm -f unit.log
 
       # `npx playwright install` lädt nur die Browser herunter. Ohne das Paket
       # selbst im Arbeitsverzeichnis scheitert `import('playwright')` in den
@@ -57,7 +76,6 @@ jobs:
         run: |
           grep -F 'platform-admin.css?v=1' index.html
           grep -F 'platform-admin.js?v=3' index.html
-          grep -F 'organization-unit-editor.js?v=3' index.html
           grep -F 'changeset-demo.css?v=1' index.html
           grep -F 'changeset-demo.js?v=2' index.html
           grep -F 'orgchart-navigation.css?v=1' index.html
@@ -66,14 +84,14 @@ jobs:
           grep -F 'navigation-shell.css?v=1' index.html
           grep -F 'navigation-shell.js?v=2' index.html
           grep -F 'ui-lifecycle.js?v=1' index.html
-          grep -F 'app.js?v=readable-1' index.html
+          grep -F 'app.js?v=masks-1' index.html
           grep -F 'leadership-overlay.css?v=3' index.html
           grep -F 'leadership-overlay.js?v=4' index.html
           grep -F 'roles.js?v=1' index.html
           grep -F 'accessibility.css?v=1' index.html
           grep -F 'accessibility.js?v=1' index.html
-          grep -F 'edit-mask.css?v=1' index.html
-          grep -F 'edit-mask.js?v=1' index.html
+          grep -F 'edit-mask.css?v=2' index.html
+          grep -F 'edit-mask.js?v=2' index.html
           grep -F 'person-groups.css?v=3' index.html
           grep -F 'person-groups.js?v=4' index.html
 

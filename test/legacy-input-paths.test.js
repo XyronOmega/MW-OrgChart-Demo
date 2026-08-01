@@ -39,16 +39,23 @@ const REMAINING_SYSTEM_DIALOGS = {
   'orgchart-navigation.js': 2, // Ansicht speichern (prompt), Ansicht löschen (confirm)
   'changeset-demo.js': 2, // Paket anlegen (prompt), fehlende Begründung (alert)
   'leadership-overlay.js': 1, // Leitungsfunktion entfernen (confirm)
-  // app.js: Demo zurücksetzen (confirm), unzulässige Verschiebung (alert),
-  // Standort + Adresse (prompt), Funktion + Kategorie (prompt),
-  // Einheit umbenennen (prompt)
-  'app.js': 7,
+  // app.js: Demo zurücksetzen (confirm), Standort + Adresse (prompt),
+  // Funktion + Kategorie (prompt).
+  // In Paket 2 entfallen: unzulässige Verschiebung (alert) und
+  // Einheit umbenennen (prompt).
+  'app.js': 5,
 }
 
-/** Noch offene modale beziehungsweise schwebende Bearbeitungsformulare. */
-const REMAINING_FLOATING_EDITORS = {
-  'organization-unit-editor.js': ['demo-unit-editor-backdrop'],
-}
+/**
+ * Noch offene modale beziehungsweise schwebende Bearbeitungsformulare.
+ * Leer, seit Paket 2 `organization-unit-editor.js` ersatzlos entfernt hat.
+ */
+const REMAINING_FLOATING_EDITORS = {}
+
+/** Entfernt Kommentare, damit Beschreibungen nicht als Code zählen. */
+const withoutComments = (text) => text
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|[^:])\/\/.*$/gm, '$1')
 
 const countDialogs = (source) => {
   // Zählt alarm/prompt/confirm als Funktionsaufruf, nicht als Wortbestandteil.
@@ -152,5 +159,33 @@ describe('Referenzfall ist auf die Maske umgestellt', () => {
   test('die Maske wird nur mit Bearbeitungsrecht geöffnet', () => {
     assert.match(source, /openCategoryMask\s*=\s*\([^)]*\)\s*=>\s*\{\s*\n?\s*if\s*\(!canEdit\(\)/,
       'Die Maske muss die Rechteprüfung an erster Stelle führen.')
+  })
+})
+
+describe('Abgelöste Altmechanismen', () => {
+  test('das modale OrgEinheiten-Formular ist entfernt', () => {
+    const vorhanden = readdirSync(root).includes('organization-unit-editor.js')
+    assert.equal(vorhanden, false, 'organization-unit-editor.js ist zurückgekehrt.')
+    assert.ok(!read('index.html').includes('organization-unit-editor'),
+      'index.html bindet das entfernte Modul wieder ein.')
+  })
+
+  test('kein ausgeliefertes Skript lädt die Seite neu oder pollt', () => {
+    const auffaellig = []
+    shippedScripts().forEach((name) => {
+      const inhalt = withoutComments(read(name))
+      if (/location\s*\.\s*reload\s*\(/.test(inhalt)) auffaellig.push(`${name}: location.reload`)
+      if (/setInterval\s*\(/.test(inhalt)) auffaellig.push(`${name}: setInterval`)
+      if (/loginBtn\s*\.\s*click\s*\(/.test(inhalt)) auffaellig.push(`${name}: simulierte Anmeldung`)
+    })
+    assert.deepEqual(auffaellig, [], 'Altmechanismen: ' + auffaellig.join(' | '))
+  })
+
+  test('Personen und Organisationseinheiten laufen über die Maske', () => {
+    const source = withoutComments(read('app.js'))
+    assert.ok(source.includes('openPersonMask'), 'Die Personenmaske fehlt.')
+    assert.ok(source.includes('openUnitMask'), 'Die Maske für Organisationseinheiten fehlt.')
+    assert.ok(source.includes('openProfileMask'), 'Die Profilmaske fehlt.')
+    assert.ok(!/data-rename=/.test(source), 'Das Umbenennen per Systemdialog ist zurückgekehrt.')
   })
 })

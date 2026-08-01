@@ -336,9 +336,7 @@
       about: 'Demo-Profil für die öffentliche Vorschau.',
     }),
   };
-  let draggedId = null,
-    unitDraft = null,
-    personDraft = null;
+  let draggedId = null;
   const save = () => {
     localStorage.setItem('mw-demo-nodes', JSON.stringify(state.nodes));
     localStorage.setItem('mw-demo-locations', JSON.stringify(state.locations));
@@ -379,6 +377,751 @@
     const f = functionMeta(name);
     return `<span class="badge ${esc(f.category)}"><span aria-hidden="true">${esc(f.icon)}</span>${esc(name)}</span>`;
   }
+
+  // --- Bearbeitungsmasken -------------------------------------------------
+  //
+  // Erfassung und Bearbeitung laufen ausschließlich über `MWEditMask` als
+  // eigener Seitenzustand in `#content`. Es gibt keine modalen Fenster, keine
+  // Bearbeitungs-Drawer, keine Systemdialoge, kein Neuladen und kein Polling.
+  // Nach dem Speichern wird nur die betroffene Ansicht neu aufgebaut; Rolle
+  // und aktive Navigation bleiben unberührt.
+
+  const ORGANIZATION_TYPE_KEY = 'mw-demo-organization-types';
+  const PERSON_GROUP_KEY = 'mw-demo-person-groups-v1';
+  const LEADERSHIP_KEY = 'mw-demo-leadership-assignments';
+
+  /** Systemtypen, solange die Plattformverwaltung nichts anderes hinterlegt hat. */
+  const defaultOrganizationTypes = [
+    { id: 'company', label: 'Unternehmen', baseType: 'company', color: '#070042', active: true },
+    { id: 'management', label: 'Geschäftsführung', baseType: 'management', color: '#fda8ff', active: true },
+    { id: 'section', label: 'Sektion', baseType: 'section', color: '#ff757b', active: true },
+    { id: 'department', label: 'Abteilung', baseType: 'department', color: '#99e7ff', active: true },
+    { id: 'team', label: 'Team', baseType: 'team', color: '#a8ffab', active: true },
+    { id: 'person', label: 'Person', baseType: 'person', color: '#f3f5f6', active: true },
+  ];
+
+  /** Welche Basisebene darf unter welcher liegen. */
+  const unitParentBaseTypes = {
+    company: ['company'],
+    management: ['company'],
+    section: ['company', 'management'],
+    department: ['company', 'management', 'section'],
+    team: ['company', 'management', 'section', 'department'],
+  };
+
+  const readJson = (key, fallback) => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key));
+      return parsed === null || parsed === undefined ? fallback : parsed;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const organizationTypes = () => {
+    const stored = readJson(ORGANIZATION_TYPE_KEY, null);
+    const list = Array.isArray(stored) && stored.length ? stored : defaultOrganizationTypes;
+    return list.filter((type) => type && type.baseType !== 'person');
+  };
+
+  const typeForNode = (node, types) =>
+    types.find((type) => type.id === (node?.organizationTypeId || node?.type)) ||
+    types.find((type) => type.baseType === node?.type) ||
+    null;
+
+  const baseTypeOf = (node, types) => typeForNode(node, types)?.baseType || node?.type || '';
+
+  /** Alle Nachfahren einer Einheit – für Zyklusprüfung und Auswirkungen. */
+  function descendantIds(nodes, rootId) {
+    const result = new Set();
+    const queue = [rootId];
+    while (queue.length) {
+      const current = queue.shift();
+      nodes
+        .filter((node) => String(node.parent || '') === String(current))
+        .forEach((child) => {
+          if (result.has(child.id)) return;
+          result.add(child.id);
+          queue.push(child.id);
+        });
+    }
+    return result;
+  }
+
+  const personGroups = () => {
+    const stored = readJson(PERSON_GROUP_KEY, []);
+    return Array.isArray(stored) ? stored : [];
+  };
+
+  /** Unterkategorien einer OrgEinheit, ohne den Systembereich „Direkt zugeordnet“. */
+  const subcategoriesForUnit = (unitId) =>
+    personGroups()
+      .filter(
+        (group) =>
+          String(group?.orgUnitId || '') === String(unitId) &&
+          group?.kind !== 'DIRECT' &&
+          !String(group?.id || '').startsWith('direct:') &&
+          group?.active !== false,
+      )
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+  const leadershipAssignments = () => {
+    const stored = readJson(LEADERSHIP_KEY, []);
+    return Array.isArray(stored) ? stored : [];
+  };
+
+  const splitName = (person) => {
+    const first = String(person?.firstName || '').trim();
+    const last = String(person?.lastName || '').trim();
+    if (first || last) return { firstName: first, lastName: last };
+    const parts = String(person?.name || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!parts.length) return { firstName: '', lastName: '' };
+    if (parts.length === 1) return { firstName: '', lastName: parts[0] };
+    const particles = new Set(['von', 'van', 'de', 'del', 'der', 'den', 'zu', 'zur', 'zum']);
+    let start = parts.length - 1;
+    while (start > 0 && particles.has(parts[start - 1].toLocaleLowerCase('de-DE'))) start -= 1;
+    return { firstName: parts.slice(0, start).join(' '), lastName: parts.slice(start).join(' ') };
+  };
+
+  const PERSON_STATUS = ['Aktiv', 'Elternzeit', 'Langzeitabwesend', 'Sabbatical', 'Ruhestand', 'Inaktiv'];
+  // Bewusst konservativ: genau ein @, davor und danach etwas, im Rest ein Punkt.
+  const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  // --- Fachliche Prüfungen (rein, ohne DOM – dadurch testbar) --------------
+
+  /**
+   * Prüft die Angaben einer Person.
+   * @returns {Object} Zuordnung Feldname → Meldung; leer, wenn alles stimmt.
+   */
+  function validatePersonValues(values, context) {
+    const nodes = context?.nodes || [];
+    const groups = context?.groups || [];
+    const editingId = context?.editingId ? String(context.editingId) : null;
+    const errors = {};
+    const text = (key) => String(values?.[key] ?? '').trim();
+
+    if (!text('firstName')) errors.firstName = 'Bitte den Vornamen angeben.';
+    if (!text('lastName')) errors.lastName = 'Bitte den Nachnamen angeben.';
+    if (!text('role')) errors.role = 'Bitte die Funktions- oder Stellenbezeichnung angeben.';
+
+    const id = text('id');
+    if (!id) errors.id = 'Die Kennung darf nicht leer sein.';
+    else if (nodes.some((node) => String(node.id) === id && String(node.id) !== editingId))
+      errors.id = 'Diese Kennung ist bereits vergeben.';
+
+    const email = text('email');
+    if (email && !EMAIL_PATTERN.test(email)) errors.email = 'Bitte eine gültige E-Mail-Adresse angeben.';
+    else if (
+      email &&
+      nodes.some(
+        (node) =>
+          node.type === 'person' &&
+          String(node.id) !== editingId &&
+          String(node.email || '').toLocaleLowerCase('de-DE') === email.toLocaleLowerCase('de-DE'),
+      )
+    )
+      errors.email = 'Diese E-Mail-Adresse ist bereits einer anderen Person zugeordnet.';
+
+    const parent = text('parent');
+    if (!parent) errors.parent = 'Bitte die primäre Organisationseinheit auswählen.';
+    else if (!nodes.some((node) => String(node.id) === parent && node.type !== 'person'))
+      errors.parent = 'Diese Organisationseinheit besteht nicht.';
+
+    const subcategory = text('subcategoryId');
+    if (subcategory) {
+      const group = groups.find((item) => String(item?.id) === subcategory);
+      if (!group) errors.subcategoryId = 'Diese Unterkategorie besteht nicht.';
+      else if (String(group.orgUnitId || '') !== parent)
+        errors.subcategoryId = 'Die Unterkategorie gehört nicht zur gewählten Organisationseinheit.';
+    }
+
+    if (values?.status && !PERSON_STATUS.includes(String(values.status)))
+      errors.status = 'Dieser Beschäftigungsstatus ist nicht vorgesehen.';
+
+    return errors;
+  }
+
+  /**
+   * Prüft die Angaben einer Organisationseinheit.
+   * @returns {Object} Zuordnung Feldname → Meldung; leer, wenn alles stimmt.
+   */
+  function validateUnitValues(values, context) {
+    const nodes = context?.nodes || [];
+    const types = context?.types || [];
+    const editingId = context?.editingId ? String(context.editingId) : null;
+    const errors = {};
+    const text = (key) => String(values?.[key] ?? '').trim();
+
+    const typeId = text('organizationTypeId');
+    const definition = types.find((type) => type.id === typeId);
+    if (!typeId) errors.organizationTypeId = 'Bitte einen Organisationstyp auswählen.';
+    else if (!definition) errors.organizationTypeId = 'Dieser Organisationstyp besteht nicht.';
+
+    const name = text('name');
+    if (!name) errors.name = 'Bitte eine Bezeichnung angeben.';
+
+    const parent = text('parent');
+    const current = editingId ? nodes.find((node) => String(node.id) === editingId) : null;
+    const istWurzel = Boolean(current) && !current.parent;
+
+    if (!parent) {
+      // Genau eine Einheit darf ohne übergeordnete Einheit bestehen: die Wurzel.
+      if (!istWurzel) errors.parent = 'Bitte die übergeordnete Organisationseinheit auswählen.';
+    } else if (editingId && parent === editingId) {
+      errors.parent = 'Eine Einheit kann sich nicht selbst übergeordnet sein.';
+    } else if (!nodes.some((node) => String(node.id) === parent && node.type !== 'person')) {
+      errors.parent = 'Diese übergeordnete Einheit besteht nicht.';
+    } else if (editingId && descendantIds(nodes, editingId).has(parent)) {
+      errors.parent = 'Diese Zuordnung erzeugt einen Kreis in der Hierarchie.';
+    } else if (definition) {
+      const parentNode = nodes.find((node) => String(node.id) === parent);
+      const erlaubt = unitParentBaseTypes[definition.baseType] || [];
+      const parentBase = baseTypeOf(parentNode, types);
+      if (erlaubt.length && !erlaubt.includes(parentBase))
+        errors.parent = `Eine Einheit vom Typ „${definition.label}“ kann hier nicht eingeordnet werden.`;
+    }
+
+    if (name && !errors.parent) {
+      const dublette = nodes.some(
+        (node) =>
+          node.type !== 'person' &&
+          String(node.id) !== editingId &&
+          String(node.parent || '') === parent &&
+          String(node.name || '')
+            .trim()
+            .toLocaleLowerCase('de-DE') === name.toLocaleLowerCase('de-DE'),
+      );
+      if (dublette) errors.name = 'Auf dieser Ebene besteht bereits eine Einheit mit dieser Bezeichnung.';
+    }
+
+    const email = text('email');
+    if (email && !EMAIL_PATTERN.test(email)) errors.email = 'Bitte eine gültige E-Mail-Adresse angeben.';
+
+    return errors;
+  }
+
+  /** Auswirkungen einer Änderung an einer OrgEinheit, für den Bereich „Auswirkungen“. */
+  function unitImpact(nodes, assignments, unitId) {
+    if (!unitId) return ['Neue Einheit – es sind noch keine Untereinheiten oder Personen betroffen.'];
+    const descendants = descendantIds(nodes, unitId);
+    const subUnits = [...descendants]
+      .map((id) => nodes.find((node) => String(node.id) === String(id)))
+      .filter((node) => node && node.type !== 'person');
+    const direkt = nodes.filter(
+      (node) => node.type === 'person' && String(node.parent || '') === String(unitId),
+    );
+    const mittelbar = nodes.filter(
+      (node) =>
+        node.type === 'person' && descendants.has(node.id) && String(node.parent || '') !== String(unitId),
+    );
+    const leitungen = assignments.filter((entry) => String(entry?.orgUnitId || '') === String(unitId));
+    return [
+      subUnits.length
+        ? `${subUnits.length} untergeordnete ${subUnits.length === 1 ? 'Einheit' : 'Einheiten'}: ${subUnits.map((node) => node.name).join(', ')}`
+        : 'Keine untergeordneten Einheiten.',
+      direkt.length
+        ? `${direkt.length} unmittelbar zugeordnete ${direkt.length === 1 ? 'Person' : 'Personen'}: ${direkt.map((node) => node.name).join(', ')}`
+        : 'Keine unmittelbar zugeordneten Personen.',
+      mittelbar.length
+        ? `${mittelbar.length} weitere ${mittelbar.length === 1 ? 'Person' : 'Personen'} in untergeordneten Einheiten.`
+        : 'Keine Personen in untergeordneten Einheiten.',
+      leitungen.length
+        ? `${leitungen.length} ${leitungen.length === 1 ? 'Leitungszuordnung' : 'Leitungszuordnungen'}: ${leitungen.map((entry) => entry.leadershipRole).join(', ')}`
+        : 'Keine Leitungszuordnung hinterlegt.',
+      'Leitung und Mitgliedschaft bleiben getrennt: Eine Verschiebung ändert keine Leitungsmandate.',
+    ];
+  }
+
+  const validationApi = {
+    validatePersonValues,
+    validateUnitValues,
+    unitImpact,
+    descendantIds,
+    splitName,
+    PERSON_STATUS,
+    EMAIL_PATTERN,
+    unitParentBaseTypes,
+  };
+  window.MWAppValidation = validationApi;
+
+  // --- Speichern ----------------------------------------------------------
+
+  /** Meldet den übrigen Modulen eine Datenänderung, ohne die Seite neu zu laden. */
+  const announceNodesChanged = () =>
+    document.dispatchEvent(new CustomEvent('mw-demo-nodes-changed', { bubbles: false }));
+
+  /**
+   * Schreibt eine Person. Die Rechteprüfung liegt hier und nicht nur in der
+   * Darstellung.
+   * @returns {Object|true} `{ error, field }` oder `true`
+   */
+  function savePersonValues(values, editingId) {
+    if (!canEdit()) return { error: 'Die aktive Rolle darf keine Personen bearbeiten.' };
+    const errors = validatePersonValues(values, {
+      nodes: state.nodes,
+      groups: personGroups(),
+      editingId,
+    });
+    const firstField = Object.keys(errors)[0];
+    if (firstField) return { error: errors[firstField], field: firstField };
+
+    const firstName = String(values.firstName).trim();
+    const lastName = String(values.lastName).trim();
+    const next = {
+      id: String(values.id).trim(),
+      parent: String(values.parent).trim(),
+      type: 'person',
+      firstName,
+      lastName,
+      // `name` bleibt als Anzeigename erhalten; die LocalStorage-Struktur
+      // ändert sich dadurch nicht, Vor- und Nachname kommen additiv hinzu.
+      name: [firstName, lastName].filter(Boolean).join(' '),
+      role: String(values.role).trim(),
+      status: String(values.status || 'Aktiv'),
+      email: String(values.email || '').trim(),
+      phone: String(values.phone || '').trim(),
+      mobile: String(values.mobile || '').trim(),
+      location: String(values.location || '').trim(),
+      subcategoryId: String(values.subcategoryId || '').trim() || null,
+      functions: state.functions
+        .map((item) => item.name)
+        .filter((name) => values[`function:${name}`] === true),
+      accent: '#ff757b',
+    };
+    const existing = state.nodes.find((node) => String(node.id) === String(editingId || next.id));
+    if (existing) Object.assign(existing, next);
+    else state.nodes.push(next);
+    save();
+    announceNodesChanged();
+    return true;
+  }
+
+  /**
+   * Schreibt eine Organisationseinheit.
+   * @returns {Object|true} `{ error, field }` oder `true`
+   */
+  function saveUnitValues(values, editingId) {
+    if (!canEdit()) return { error: 'Die aktive Rolle darf keine Organisationseinheiten bearbeiten.' };
+    const types = organizationTypes();
+    const errors = validateUnitValues(values, { nodes: state.nodes, types, editingId });
+    const firstField = Object.keys(errors)[0];
+    if (firstField) return { error: errors[firstField], field: firstField };
+
+    const definition = types.find((type) => type.id === String(values.organizationTypeId));
+    const next = {
+      id: String(values.id).trim(),
+      parent: String(values.parent || '').trim() || null,
+      type: definition.baseType,
+      organizationTypeId: definition.id,
+      baseType: definition.baseType,
+      name: String(values.name).trim(),
+      subtitle: definition.label,
+      shortName: String(values.shortName || '').trim(),
+      location: String(values.location || '').trim(),
+      email: String(values.email || '').trim(),
+      phone: String(values.phone || '').trim(),
+      description: String(values.description || '').trim(),
+      isActive: values.isActive !== false,
+      accent: definition.color,
+    };
+    const existing = state.nodes.find((node) => String(node.id) === String(editingId || next.id));
+    if (existing) Object.assign(existing, next);
+    else state.nodes.push(next);
+    save();
+    announceNodesChanged();
+    return true;
+  }
+
+  // --- Sichtbarer Hinweis innerhalb der Seite ------------------------------
+
+  /**
+   * Ersetzt den früheren `alert` bei unzulässigen Verschiebungen. Der Hinweis
+   * steht im Inhaltsbereich und verschwindet beim nächsten Aufbau der Ansicht.
+   */
+  let pendingViewNotice = null;
+  function showViewNotice(text, tone = 'error') {
+    pendingViewNotice = { text, tone };
+    renderViewNotice();
+  }
+  function renderViewNotice() {
+    if (!pendingViewNotice) return;
+    const holder = content.querySelector('[data-view-notice]');
+    if (!holder) return;
+    holder.textContent = pendingViewNotice.text;
+    holder.className = `view-notice view-notice--${pendingViewNotice.tone}`;
+    holder.hidden = false;
+    holder.setAttribute('role', 'status');
+  }
+  const viewNoticeHtml = () => '<p class="view-notice" data-view-notice hidden></p>';
+
+  // --- Masken --------------------------------------------------------------
+
+  const unitLabelFor = (node) => {
+    const definition = typeForNode(node, organizationTypes());
+    return definition?.label || unitLabels[node?.type] || node?.type || '';
+  };
+
+  const unitSelectOptions = (exclude = new Set()) =>
+    unitOptions()
+      .filter((unit) => !exclude.has(unit.id))
+      .map((unit) => ({
+        value: unit.id,
+        label: `${unitPath(unit.id).join(' › ')} · ${unitLabelFor(unit)}`,
+      }));
+
+  /** Maske für eine Person. `personId` leer bedeutet Neuanlage. */
+  function openPersonMask(personId) {
+    if (!canEdit() || !window.MWEditMask) return false;
+    const person = personId ? state.nodes.find((node) => String(node.id) === String(personId)) : null;
+    if (personId && !person) return false;
+    const parts = splitName(person);
+    const parent = person?.parent || '';
+    const zurueck = () => {
+      state.view = 'people';
+      renderPeople();
+    };
+
+    const werte = {
+      id: person?.id || `p${Date.now()}`,
+      firstName: parts.firstName,
+      lastName: parts.lastName,
+      role: person?.role || '',
+      status: person?.status || 'Aktiv',
+      parent,
+      subcategoryId: person?.subcategoryId || '',
+      email: person?.email || '',
+      phone: person?.phone || '',
+      mobile: person?.mobile || '',
+      location: person?.location || '',
+    };
+    state.functions.forEach((item) => {
+      werte[`function:${item.name}`] = (person?.functions || []).includes(item.name);
+    });
+
+    const subcategoryOptions = (unitId) => [
+      { value: '', label: 'Direkt zugeordnet' },
+      ...subcategoriesForUnit(unitId).map((group) => ({ value: group.id, label: group.name })),
+    ];
+
+    window.MWEditMask.open({
+      id: 'person',
+      eyebrow: 'Organisation · Personen',
+      title: person ? `Person „${person.name}“ bearbeiten` : 'Neue Person anlegen',
+      description: person
+        ? 'Stammdaten, organisatorische Zuordnung, Kontakt und Zusatzfunktionen dieser Person.'
+        : 'Stammdaten erfassen und die genaue Position im Organigramm festlegen.',
+      breadcrumb: [
+        { label: 'Organisation' },
+        { label: 'Personen', onSelect: zurueck },
+        { label: person ? person.name : 'Neue Person' },
+      ],
+      sections: [
+        {
+          title: 'Stammdaten',
+          description: 'Name und Aufgabe der Person.',
+          fields: [
+            { name: 'firstName', label: 'Vorname', type: 'text', required: true, maxLength: 60 },
+            { name: 'lastName', label: 'Nachname', type: 'text', required: true, maxLength: 60 },
+            {
+              name: 'role',
+              label: 'Funktions- oder Stellenbezeichnung',
+              type: 'text',
+              required: true,
+              maxLength: 80,
+              wide: true,
+              hint: 'Die Aufgabe der Person, nicht ihre Rolle in der Anwendung.',
+            },
+            {
+              name: 'status',
+              label: 'Beschäftigungsstatus',
+              type: 'select',
+              options: PERSON_STATUS.map((value) => ({ value, label: value })),
+            },
+            {
+              name: 'id',
+              label: 'Kennung',
+              type: 'text',
+              required: true,
+              hint: 'Muss eindeutig sein. Wird für Verweise aus anderen Ansichten verwendet.',
+            },
+          ],
+        },
+        {
+          title: 'Organisatorische Zuordnung',
+          description:
+            'Die Organisationseinheit bestimmt die Position im Organigramm. Eine Unterkategorie gliedert nur die Darstellung innerhalb dieser Einheit; sie ist keine eigene OrgEinheit und begründet keine Leitung.',
+          fields: [
+            {
+              name: 'parent',
+              label: 'Organisationseinheit',
+              type: 'select',
+              required: true,
+              wide: true,
+              options: [{ value: '', label: 'Bitte auswählen' }, ...unitSelectOptions()],
+            },
+            {
+              name: 'subcategoryId',
+              label: 'Unterkategorie',
+              type: 'select',
+              wide: true,
+              options: subcategoryOptions(parent),
+              hint: 'Nur Unterkategorien der gewählten Organisationseinheit sind zulässig.',
+            },
+          ],
+        },
+        {
+          title: 'Kontakt',
+          fields: [
+            { name: 'email', label: 'E-Mail', type: 'email', maxLength: 120, autocomplete: 'email' },
+            { name: 'phone', label: 'Telefon', type: 'tel', maxLength: 40 },
+            { name: 'mobile', label: 'Mobiltelefon', type: 'tel', maxLength: 40 },
+            {
+              name: 'location',
+              label: 'Standort',
+              type: 'select',
+              options: [
+                { value: '', label: 'Kein Standort' },
+                ...state.locations
+                  .filter((location) => location.active)
+                  .map((location) => ({ value: location.name, label: location.name })),
+              ],
+            },
+          ],
+        },
+        {
+          title: 'Zusatzfunktionen',
+          description:
+            'Auswahl aus den in der Verwaltung gepflegten Zusatzfunktionen. Freie Eingaben sind nicht vorgesehen.',
+          fields: state.functions.map((item) => ({
+            name: `function:${item.name}`,
+            label: `${item.icon} ${item.name}`,
+            type: 'checkbox',
+          })),
+        },
+      ],
+      values: werte,
+      validate: (values) =>
+        validatePersonValues(values, {
+          nodes: state.nodes,
+          groups: personGroups(),
+          editingId: person?.id || null,
+        }),
+      saveLabel: person ? 'Änderungen speichern' : 'Person anlegen',
+      onSave: (values) => {
+        const result = savePersonValues(values, person?.id || null);
+        if (result !== true) return result;
+        zurueck();
+        return true;
+      },
+      onCancel: zurueck,
+    });
+    return true;
+  }
+
+  /** Maske für eine Organisationseinheit. `unitId` leer bedeutet Neuanlage. */
+  function openUnitMask(unitId) {
+    if (!canEdit() || !window.MWEditMask) return false;
+    const unit = unitId ? state.nodes.find((node) => String(node.id) === String(unitId)) : null;
+    if (unitId && !unit) return false;
+    const types = organizationTypes();
+    const definition = unit ? typeForNode(unit, types) : null;
+    const gesperrt = unit ? descendantIds(state.nodes, unit.id) : new Set();
+    if (unit) gesperrt.add(unit.id);
+    const zurueck = () => {
+      state.view = 'units';
+      renderUnits();
+    };
+
+    window.MWEditMask.open({
+      id: 'unit',
+      eyebrow: 'Organisation · Organisationseinheiten',
+      title: unit ? `Organisationseinheit „${unit.name}“ bearbeiten` : 'Neue Organisationseinheit anlegen',
+      description: unit
+        ? 'Einordnung, Stammdaten und Kontakt dieser Organisationseinheit.'
+        : 'Zuerst Typ und Einordnung wählen, danach die Stammdaten erfassen.',
+      breadcrumb: [
+        { label: 'Organisation' },
+        { label: 'Organisationseinheiten', onSelect: zurueck },
+        { label: unit ? unit.name : 'Neue Einheit' },
+      ],
+      sections: [
+        {
+          title: 'Einordnung',
+          description: 'Typ und Platzierung bestimmen, wo die Einheit im Organigramm erscheint.',
+          fields: [
+            {
+              name: 'organizationTypeId',
+              label: 'Organisationstyp',
+              type: 'select',
+              required: true,
+              options: [
+                { value: '', label: 'Bitte auswählen' },
+                ...types
+                  .filter((type) => type.active !== false || type.id === definition?.id)
+                  .map((type) => ({ value: type.id, label: type.label })),
+              ],
+            },
+            {
+              name: 'parent',
+              label: 'Übergeordnete Organisationseinheit',
+              type: 'select',
+              wide: true,
+              options: [
+                { value: '', label: unit && !unit.parent ? 'Keine – oberste Einheit' : 'Bitte auswählen' },
+                ...unitSelectOptions(gesperrt),
+              ],
+              hint: 'Die eigene Einheit und ihre Untereinheiten stehen nicht zur Auswahl – das verhindert Kreise.',
+            },
+          ],
+        },
+        {
+          title: 'Stammdaten',
+          fields: [
+            { name: 'name', label: 'Bezeichnung', type: 'text', required: true, maxLength: 120, wide: true },
+            { name: 'shortName', label: 'Kurzbezeichnung', type: 'text', maxLength: 40 },
+            {
+              name: 'isActive',
+              label: 'Aktiv (nicht archiviert)',
+              type: 'checkbox',
+            },
+            {
+              name: 'description',
+              label: 'Beschreibung',
+              type: 'textarea',
+              rows: 3,
+              maxLength: 400,
+              wide: true,
+            },
+            {
+              name: 'id',
+              label: 'Kennung',
+              type: 'text',
+              required: true,
+              hint: 'Muss eindeutig sein.',
+            },
+          ],
+        },
+        {
+          title: 'Kontakt',
+          fields: [
+            { name: 'email', label: 'Funktionspostfach', type: 'email', maxLength: 120 },
+            { name: 'phone', label: 'Telefon', type: 'tel', maxLength: 40 },
+            {
+              name: 'location',
+              label: 'Standort',
+              type: 'select',
+              options: [
+                { value: '', label: 'Kein Standort' },
+                ...state.locations
+                  .filter((location) => location.active)
+                  .map((location) => ({ value: location.name, label: location.name })),
+              ],
+            },
+          ],
+        },
+        {
+          title: 'Auswirkungen',
+          description:
+            'Betroffene Einträge, falls Einordnung oder Status geändert werden. Untereinheiten und Personen wandern mit.',
+          notes: unitImpact(state.nodes, leadershipAssignments(), unit?.id || null),
+        },
+      ],
+      values: {
+        id: unit?.id || `unit${Date.now()}`,
+        organizationTypeId: definition?.id || '',
+        parent: unit?.parent || '',
+        name: unit?.name || '',
+        shortName: unit?.shortName || '',
+        isActive: unit ? unit.isActive !== false : true,
+        description: unit?.description || '',
+        email: unit?.email || '',
+        phone: unit?.phone || '',
+        location: unit?.location || '',
+      },
+      validate: (values) =>
+        validateUnitValues(values, { nodes: state.nodes, types, editingId: unit?.id || null }),
+      saveLabel: unit ? 'Änderungen speichern' : 'Einheit anlegen',
+      onSave: (values) => {
+        const result = saveUnitValues(values, unit?.id || null);
+        if (result !== true) return result;
+        zurueck();
+        return true;
+      },
+      onCancel: zurueck,
+    });
+    return true;
+  }
+
+  /** Maske für das eigene Profil. Jede Rolle darf ihr eigenes Profil pflegen. */
+  function openProfileMask() {
+    if (!window.MWEditMask) return false;
+    const role = roles[state.role];
+    const zurueck = () => {
+      state.view = 'profile';
+      renderProfile();
+    };
+    window.MWEditMask.open({
+      id: 'profile',
+      eyebrow: 'Mein Profil',
+      title: 'Kontaktdaten bearbeiten',
+      description: `Persönliche Angaben von ${role.name}. Die Änderungen bleiben lokal in diesem Browser.`,
+      breadcrumb: [{ label: 'Mein Profil', onSelect: zurueck }, { label: 'Kontaktdaten bearbeiten' }],
+      sections: [
+        {
+          title: 'Kontakt',
+          fields: [
+            { name: 'phone', label: 'Telefon', type: 'tel', maxLength: 40 },
+            { name: 'mobile', label: 'Mobiltelefon', type: 'tel', maxLength: 40 },
+            {
+              name: 'location',
+              label: 'Standort',
+              type: 'select',
+              options: state.locations
+                .filter((location) => location.active)
+                .map((location) => ({ value: location.name, label: location.name })),
+            },
+          ],
+        },
+        {
+          title: 'Über mich',
+          fields: [
+            {
+              name: 'about',
+              label: 'Kurzbeschreibung',
+              type: 'textarea',
+              rows: 4,
+              maxLength: 400,
+              wide: true,
+            },
+          ],
+        },
+      ],
+      values: {
+        phone: state.profile.phone || '',
+        mobile: state.profile.mobile || '',
+        location: state.profile.location || '',
+        about: state.profile.about || '',
+      },
+      saveLabel: 'Profil speichern',
+      onSave: (values) => {
+        state.profile = {
+          phone: String(values.phone || '').trim(),
+          mobile: String(values.mobile || '').trim(),
+          location: String(values.location || ''),
+          about: String(values.about || '').trim(),
+        };
+        save();
+        zurueck();
+        return true;
+      },
+      onCancel: zurueck,
+    });
+    return true;
+  }
+
   function initLogin() {
     roleSelect.innerHTML = Object.entries(roles)
       .map(([key, role]) => `<option value="${key}">${esc(role.label)} – ${esc(role.name)}</option>`)
@@ -419,8 +1162,8 @@
       about: 'Demo-Profil für die öffentliche Vorschau.',
     };
     state.editMode = false;
-    unitDraft = null;
-    personDraft = null;
+    // Eine offene Bearbeitungsmaske wird mit zurueckgesetzt.
+    window.MWEditMask?.close();
     save();
     renderView();
   });
@@ -439,8 +1182,7 @@
       (button) =>
         (button.onclick = () => {
           state.view = button.dataset.view;
-          unitDraft = null;
-          personDraft = null;
+          pendingViewNotice = null;
           renderShell();
           closeDrawer();
         }),
@@ -478,7 +1220,9 @@
           ? `<button id="editModeBtn" class="btn ${state.editMode ? 'btn-secondary' : 'btn-ghost'}">${state.editMode ? 'Strukturmodus beenden' : 'Struktur bearbeiten'}</button>`
           : '',
       ) +
+      viewNoticeHtml() +
       `<div class="toolbar"><input id="searchInput" placeholder="Name, Rolle, E-Mail oder Zusatzfunktion suchen" value="${esc(state.query)}"><button id="searchBtn" class="btn btn-primary">Suchen</button><button id="clearSearchBtn" class="btn btn-ghost">Zurücksetzen</button></div><p class="notice ${state.editMode ? 'success' : 'hidden'}">Strukturmodus aktiv: Karten per Drag-and-drop auf eine andere Organisationseinheit ziehen.</p><div class="chart-wrap ${state.editMode ? 'edit-mode' : ''}"><div class="tree">${root ? renderNode(root) : '<div class="empty">Keine Organisationsdaten vorhanden.</div>'}</div></div>`;
+    renderViewNotice();
     const editBtn = el('editModeBtn'),
       searchInput = el('searchInput'),
       searchBtn = el('searchBtn'),
@@ -529,10 +1273,19 @@
         const source = state.nodes.find(
           (item) => item.id === (draggedId || event.dataTransfer.getData('text/plain')),
         );
-        if (!source || source.id === id || node?.type === 'person' || isDescendant(id, source.id))
-          return alert('Diese Verschiebung ist nicht möglich.');
+        if (!source || source.id === id || node?.type === 'person' || isDescendant(id, source.id)) {
+          showViewNotice(
+            source && source.id === id
+              ? 'Eine Einheit kann nicht auf sich selbst abgelegt werden.'
+              : node?.type === 'person'
+                ? 'Personen können keine übergeordnete Einheit sein.'
+                : 'Diese Verschiebung würde einen Kreis in der Hierarchie erzeugen.',
+          );
+          return;
+        }
         source.parent = id;
         save();
+        announceNodesChanged();
         renderChart();
       };
     });
@@ -579,26 +1332,24 @@
   window.closeDrawer = closeDrawer;
   function renderProfile() {
     const role = roles[state.role];
+    const zeile = (label, value) =>
+      `<div class="detail-row"><span>${esc(label)}</span><strong>${esc(value || '—')}</strong></div>`;
     content.innerHTML =
-      viewHead('Mein Profil', 'Persönliche Kontaktdaten in der Demo bearbeiten.') +
+      viewHead(
+        'Mein Profil',
+        'Persönliche Kontaktdaten in der Demo. Änderungen erfolgen in einer eigenen Maske.',
+        '<button id="editProfile" class="btn btn-primary">Kontaktdaten bearbeiten</button>',
+      ) +
+      viewNoticeHtml() +
       `<div class="profile-layout"><section class="profile-card"><div class="avatar">${esc(
         role.name
           .split(' ')
           .map((part) => part[0])
           .join('')
           .slice(0, 2),
-      )}</div><h3>${esc(role.name)}</h3><p>${esc(role.label)}<br>${esc(role.email)}</p></section><section class="panel"><h3>Kontaktdaten</h3><div class="form-grid"><label class="field"><span>Telefon</span><input id="profPhone" value="${esc(state.profile.phone)}"></label><label class="field"><span>Mobil</span><input id="profMobile" value="${esc(state.profile.mobile)}"></label><label class="field full"><span>Standort</span><select id="profLocation">${state.locations.map((location) => `<option ${location.name === state.profile.location ? 'selected' : ''}>${esc(location.name)}</option>`).join('')}</select></label><label class="field full"><span>Über mich</span><textarea id="profAbout">${esc(state.profile.about)}</textarea></label></div><button id="saveProfile" class="btn btn-primary">Profil lokal speichern</button><p id="profileMsg" class="notice hidden"></p></section></div>`;
-    el('saveProfile').onclick = () => {
-      state.profile = {
-        phone: el('profPhone').value,
-        mobile: el('profMobile').value,
-        location: el('profLocation').value,
-        about: el('profAbout').value,
-      };
-      save();
-      el('profileMsg').textContent = 'Profil wurde lokal gespeichert.';
-      el('profileMsg').classList.remove('hidden');
-    };
+      )}</div><h3>${esc(role.name)}</h3><p>${esc(role.label)}<br>${esc(role.email)}</p></section><section class="panel"><h3>Kontaktdaten</h3><div class="detail-list">${zeile('Telefon', state.profile.phone)}${zeile('Mobiltelefon', state.profile.mobile)}${zeile('Standort', state.profile.location)}${zeile('Über mich', state.profile.about)}</div></section></div>`;
+    renderViewNotice();
+    el('editProfile').onclick = () => openProfileMask();
   }
   function renderAdmin() {
     const people = state.nodes.filter((node) => node.type === 'person').length,
@@ -725,248 +1476,55 @@
       esc(person.role || ''),
       esc((state.nodes.find((node) => node.id === person.parent) || {}).name || ''),
       esc(person.location || ''),
-      `<div class="actions"><button class="btn btn-ghost btn-small" data-profile="${person.id}">Profil</button>${canEdit() ? `<button class="btn btn-ghost btn-small" data-edit-person="${person.id}">Bearbeiten</button>` : ''}</div>`,
+      `<div class="actions"><button class="btn btn-ghost btn-small" data-profile="${esc(person.id)}">Profil</button>${canEdit() ? `<button class="btn btn-ghost btn-small" data-edit-person="${esc(person.id)}">Bearbeiten</button>` : ''}</div>`,
     ]);
-    const builder = personDraft ? personBuilderHtml() : '';
     content.innerHTML =
       viewHead(
         'Personenverwaltung',
         'Personen mit Stammdaten, Kontakt, Standort, Funktionen und eindeutiger organisatorischer Platzierung pflegen.',
         canEdit() ? '<button id="addPerson" class="btn btn-primary">Person anlegen</button>' : '',
       ) +
-      builder +
+      viewNoticeHtml() +
       table(['Name', 'Rolle', 'Organisation', 'Standort', 'Aktionen'], rows);
+    renderViewNotice();
     const add = el('addPerson');
-    if (add)
-      add.onclick = () => {
-        personDraft = {
-          id: `p${Date.now()}`,
-          name: '',
-          role: '',
-          parent: '',
-          email: '',
-          phone: '',
-          location: '',
-          status: 'Aktiv',
-          functions: [],
-        };
-        renderPeople();
-      };
-    wirePersonBuilder();
+    if (add) add.onclick = () => openPersonMask(null);
     content
       .querySelectorAll('[data-profile]')
       .forEach(
         (button) =>
           (button.onclick = () => openDrawer(state.nodes.find((node) => node.id === button.dataset.profile))),
       );
-    content.querySelectorAll('[data-edit-person]').forEach(
-      (button) =>
-        (button.onclick = () => {
-          const person = state.nodes.find((node) => node.id === button.dataset.editPerson);
-          personDraft = clone(person);
-          renderPeople();
-        }),
-    );
-  }
-  function personBuilderHtml() {
-    const options = unitOptions();
-    return `<section class="builder"><h3>${state.nodes.some((node) => node.id === personDraft.id) ? 'Person bearbeiten' : 'Neue Person'}</h3><p>Stammdaten erfassen und die genaue Position im Organigramm auswählen.</p><div class="placement ${personDraft.parent ? 'complete' : ''}"><strong>Vorgesehene Platzierung</strong><span id="personPlacement"></span></div><div class="builder-section"><h4>Person und Zuordnung</h4><div class="builder-grid"><label class="field"><span>Name *</span><input id="personName" value="${esc(personDraft.name)}"></label><label class="field"><span>Aufgabe / Stellenbezeichnung *</span><input id="personRole" value="${esc(personDraft.role)}"></label><label class="field builder-wide"><span>Primäre Organisationseinheit *</span><select id="personParent"><option value="">Bitte auswählen</option>${options.map((unit) => `<option value="${unit.id}" ${unit.id === personDraft.parent ? 'selected' : ''}>${esc(unitPath(unit.id).join(' › '))} · ${esc(unitLabels[unit.type])}</option>`).join('')}</select><small>Diese Auswahl bestimmt, an welcher Stelle die Person im Organigramm erscheint.</small></label><label class="field"><span>Beschäftigungsstatus</span><select id="personStatus">${['Aktiv', 'Elternzeit', 'Langzeitabwesend', 'Sabbatical', 'Ruhestand', 'Inaktiv'].map((status) => `<option ${status === personDraft.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label><label class="field"><span>Standort</span><select id="personLocation"><option value="">Bitte auswählen</option>${state.locations
-      .filter((location) => location.active)
-      .map(
-        (location) =>
-          `<option ${location.name === personDraft.location ? 'selected' : ''}>${esc(location.name)}</option>`,
-      )
-      .join(
-        '',
-      )}</select></label></div></div><div class="builder-section"><h4>Kontakt</h4><div class="builder-grid"><label class="field"><span>E-Mail *</span><input id="personEmail" type="email" value="${esc(personDraft.email)}"></label><label class="field"><span>Telefon</span><input id="personPhone" value="${esc(personDraft.phone || '')}"></label></div></div><div class="builder-section"><h4>Zusatzfunktionen</h4><div class="checkbox-grid">${state.functions.map((func) => `<label class="check"><input type="checkbox" data-person-function="${esc(func.name)}" ${(personDraft.functions || []).includes(func.name) ? 'checked' : ''}><span>${badgeHtml(func.name)}</span></label>`).join('')}</div></div><p id="personFormMessage" class="notice hidden"></p><div class="actions"><button id="savePerson" class="btn btn-primary">${state.nodes.some((node) => node.id === personDraft.id) ? 'Änderungen speichern' : 'Person anlegen'}</button><button id="cancelPerson" class="btn btn-ghost">Abbrechen</button></div></section>`;
-  }
-  function wirePersonBuilder() {
-    if (!personDraft) return;
-    const fields = {
-      name: el('personName'),
-      role: el('personRole'),
-      parent: el('personParent'),
-      status: el('personStatus'),
-      location: el('personLocation'),
-      email: el('personEmail'),
-      phone: el('personPhone'),
-      placement: el('personPlacement'),
-      message: el('personFormMessage'),
-    };
-    const sync = () => {
-      personDraft.name = fields.name.value;
-      personDraft.role = fields.role.value;
-      personDraft.parent = fields.parent.value;
-      personDraft.status = fields.status.value;
-      personDraft.location = fields.location.value;
-      personDraft.email = fields.email.value;
-      personDraft.phone = fields.phone.value;
-      personDraft.functions = [...document.querySelectorAll('[data-person-function]:checked')].map(
-        (input) => input.dataset.personFunction,
-      );
-      fields.placement.textContent = personDraft.parent
-        ? [...unitPath(personDraft.parent), personDraft.name.trim() || 'Neue Person'].join(' › ')
-        : 'Bitte die primäre Organisationseinheit auswählen.';
-    };
-    Object.values(fields)
-      .filter((field) => field && ['INPUT', 'SELECT'].includes(field.tagName))
-      .forEach((field) => {
-        field.oninput = sync;
-        field.onchange = sync;
-      });
-    document.querySelectorAll('[data-person-function]').forEach((input) => (input.onchange = sync));
-    sync();
-    el('cancelPerson').onclick = () => {
-      personDraft = null;
-      renderPeople();
-    };
-    el('savePerson').onclick = () => {
-      sync();
-      const message = (text) => {
-        fields.message.textContent = text;
-        fields.message.className = 'notice error';
-      };
-      if (!personDraft.name.trim()) return message('Bitte einen Namen eingeben.');
-      if (!personDraft.role.trim()) return message('Bitte eine Aufgabe oder Stellenbezeichnung eingeben.');
-      if (!personDraft.parent) return message('Bitte die primäre Organisationseinheit auswählen.');
-      if (!personDraft.email.trim()) return message('Bitte eine E-Mail-Adresse eingeben.');
-      if (
-        state.nodes.some(
-          (node) =>
-            node.type === 'person' &&
-            node.id !== personDraft.id &&
-            String(node.email || '').toLowerCase() === personDraft.email.trim().toLowerCase(),
-        )
-      )
-        return message('Diese E-Mail-Adresse ist bereits einer anderen Person zugeordnet.');
-      const existing = state.nodes.find((node) => node.id === personDraft.id);
-      const next = {
-        ...personDraft,
-        name: personDraft.name.trim(),
-        role: personDraft.role.trim(),
-        email: personDraft.email.trim(),
-        phone: personDraft.phone.trim(),
-        accent: '#ff757b',
-        type: 'person',
-      };
-      if (existing) Object.assign(existing, next);
-      else state.nodes.push(next);
-      personDraft = null;
-      save();
-      renderPeople();
-    };
-  }
-  function unitParentOptions(type) {
-    return state.nodes
-      .filter((node) => node.type !== 'person' && unitParentTypes[type]?.includes(node.type))
-      .sort((a, b) => unitPath(a.id).join(' / ').localeCompare(unitPath(b.id).join(' / '), 'de'));
+    content
+      .querySelectorAll('[data-edit-person]')
+      .forEach((button) => (button.onclick = () => openPersonMask(button.dataset.editPerson)));
   }
   function renderUnits() {
     const units = state.nodes
       .filter((node) => node.type !== 'person')
       .map((unit) => [
         esc(unit.name),
-        esc(unitLabels[unit.type] || unit.subtitle || unit.type),
+        esc(unitLabelFor(unit)),
         esc((state.nodes.find((node) => node.id === unit.parent) || {}).name || '—'),
         state.nodes.filter((node) => node.parent === unit.id).length,
         canEdit()
-          ? `<button class="btn btn-ghost btn-small" data-rename="${unit.id}">Umbenennen</button>`
+          ? `<div class="actions"><button class="btn btn-ghost btn-small" data-edit-unit="${esc(unit.id)}">Bearbeiten</button></div>`
           : 'Nur lesen',
       ]);
-    const builder = unitDraft ? unitBuilderHtml() : '';
     content.innerHTML =
       viewHead(
         'Organisationseinheiten',
-        'Sektionen, Abteilungen und Teams mit eindeutiger Platzierung pflegen.',
+        'Sektionen, Abteilungen und Teams mit eindeutiger Platzierung pflegen. Bezeichnung, Einordnung, Kontakt und Status werden in einer eigenen Maske bearbeitet.',
         canEdit() ? '<button id="addUnit" class="btn btn-primary">Organisationseinheit anlegen</button>' : '',
       ) +
-      builder +
+      viewNoticeHtml() +
       table(['Bezeichnung', 'Ebene', 'Übergeordnet', 'Untergeordnete Einträge', 'Aktionen'], units);
+    renderViewNotice();
     const add = el('addUnit');
-    if (add)
-      add.onclick = () => {
-        unitDraft = { type: '', parent: '', name: '' };
-        renderUnits();
-      };
-    wireUnitBuilder();
-    content.querySelectorAll('[data-rename]').forEach(
-      (button) =>
-        (button.onclick = () => {
-          const unit = state.nodes.find((node) => node.id === button.dataset.rename),
-            next = prompt('Neue Bezeichnung', unit.name);
-          if (next) {
-            unit.name = next;
-            save();
-            renderUnits();
-          }
-        }),
-    );
-  }
-  function unitBuilderHtml() {
-    return `<section class="builder"><h3>Neue Organisationseinheit</h3><p>Zuerst die Ebene und anschließend die genaue Platzierung im Organigramm auswählen.</p><div class="builder-grid"><label class="field"><span>Typ *</span><select id="unitType"><option value="">Typ auswählen</option><option value="section" ${unitDraft.type === 'section' ? 'selected' : ''}>Sektion</option><option value="department" ${unitDraft.type === 'department' ? 'selected' : ''}>Abteilung</option><option value="team" ${unitDraft.type === 'team' ? 'selected' : ''}>Team</option></select></label><label class="field"><span>Übergeordnete Einheit *</span><select id="unitParent" ${unitDraft.type ? '' : 'disabled'}></select></label><div class="placement builder-wide"><strong>Vorgesehene Platzierung</strong><span id="unitPlacement"></span></div><label class="field builder-wide"><span>Name *</span><input id="unitName" value="${esc(unitDraft.name)}" placeholder="Bezeichnung der neuen Einheit"></label></div><p id="unitFormMessage" class="notice hidden"></p><div class="actions"><button id="saveUnit" class="btn btn-primary">Einheit anlegen</button><button id="cancelUnit" class="btn btn-ghost">Abbrechen</button></div></section>`;
-  }
-  function wireUnitBuilder() {
-    if (!unitDraft) return;
-    const type = el('unitType'),
-      parent = el('unitParent'),
-      name = el('unitName'),
-      placement = el('unitPlacement'),
-      message = el('unitFormMessage');
-    const refresh = () => {
-      unitDraft.type = type.value;
-      unitDraft.name = name.value;
-      const parents = unitParentOptions(unitDraft.type);
-      if (!parents.some((item) => item.id === unitDraft.parent)) unitDraft.parent = '';
-      parent.disabled = !unitDraft.type;
-      parent.innerHTML =
-        `<option value="">${unitDraft.type ? 'Platzierung auswählen' : 'Zuerst Typ auswählen'}</option>` +
-        parents
-          .map(
-            (item) =>
-              `<option value="${item.id}" ${item.id === unitDraft.parent ? 'selected' : ''}>${esc(unitPath(item.id).join(' › '))} · ${esc(unitLabels[item.type])}</option>`,
-          )
-          .join('');
-      placement.textContent = !unitDraft.type
-        ? 'Zuerst den Typ der neuen Einheit auswählen.'
-        : !unitDraft.parent
-          ? `Anschließend auswählen, unter welcher Einheit die ${unitLabels[unitDraft.type]} angelegt wird.`
-          : [
-              ...unitPath(unitDraft.parent),
-              unitDraft.name.trim() || `Neue ${unitLabels[unitDraft.type]}`,
-            ].join(' › ');
-    };
-    type.onchange = refresh;
-    parent.onchange = () => {
-      unitDraft.parent = parent.value;
-      refresh();
-    };
-    name.oninput = refresh;
-    refresh();
-    el('cancelUnit').onclick = () => {
-      unitDraft = null;
-      renderUnits();
-    };
-    el('saveUnit').onclick = () => {
-      const show = (text) => {
-        message.textContent = text;
-        message.className = 'notice error';
-      };
-      if (!unitDraft.type) return show('Bitte zuerst den Typ auswählen.');
-      if (!unitDraft.parent) return show('Bitte die übergeordnete Einheit auswählen.');
-      if (!unitDraft.name.trim()) return show('Bitte einen Namen eingeben.');
-      state.nodes.push({
-        id: `unit${Date.now()}`,
-        parent: unitDraft.parent,
-        type: unitDraft.type,
-        name: unitDraft.name.trim(),
-        subtitle: unitLabels[unitDraft.type],
-        accent:
-          unitDraft.type === 'section' ? '#070042' : unitDraft.type === 'department' ? '#99e7ff' : '#a8ffab',
-      });
-      unitDraft = null;
-      save();
-      renderUnits();
-    };
+    if (add) add.onclick = () => openUnitMask(null);
+    content
+      .querySelectorAll('[data-edit-unit]')
+      .forEach((button) => (button.onclick = () => openUnitMask(button.dataset.editUnit)));
   }
   function renderQuality() {
     const people = state.nodes.filter((node) => node.type === 'person'),
