@@ -190,21 +190,18 @@ describe('Abgleich mit den übrigen Modulen', () => {
   })
 
   /**
-   * app.js liegt als gepackter Block vor und wird hier bewusst nicht
-   * verändert. Der Test entpackt ihn und stellt sicher, dass Kennungen,
-   * Beschriftungen und Demo-Namen nicht auseinanderlaufen.
+   * app.js führt die Rollendefinition der Demo. Der Test stellt sicher, dass
+   * Kennungen, Beschriftungen und Demo-Namen nicht auseinanderlaufen.
+   *
+   * Seit app.js als lesbarer Quelltext geführt wird, entfällt das Entpacken.
    */
-  test('die Rollenbezeichnungen stimmen mit app.js überein', async () => {
-    const { gunzipSync } = await import('node:zlib')
-    const base64 = /b="([A-Za-z0-9+/=]+)"/.exec(read('app.js'))?.[1]
-    assert.ok(base64, 'Der gepackte Block in app.js wurde nicht gefunden.')
-    const decoded = gunzipSync(Buffer.from(base64, 'base64')).toString('utf8')
-    const body = /const roles=\{(.*?)\};\s*\nconst navItems/s.exec(decoded)?.[1]
+  test('die Rollenbezeichnungen stimmen mit app.js überein', () => {
+    const body = /const roles = \{(.*?)\n\s*\};\s*\n\s*const navItems/s.exec(read('app.js'))?.[1]
     assert.ok(body, 'Die Rollendefinition wurde in app.js nicht gefunden.')
 
     const gefunden = {}
     const namen = {}
-    for (const match of body.matchAll(/(\w+):\{label:'([^']+)',name:'([^']+)'/g)) {
+    for (const match of body.matchAll(/(\w+):\s*\{\s*label:\s*'([^']+)',\s*name:\s*'([^']+)'/g)) {
       gefunden[match[1]] = match[2]
       namen[match[1]] = match[3]
     }

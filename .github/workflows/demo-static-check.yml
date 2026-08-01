@@ -68,11 +68,18 @@ jobs:
           grep -F 'navigation-shell.css?v=1' index.html
           grep -F 'navigation-shell.js?v=2' index.html
           grep -F 'ui-lifecycle.js?v=1' index.html
+          grep -F 'app.js?v=readable-1' index.html
           grep -F 'leadership-overlay.css?v=3' index.html
           grep -F 'leadership-overlay.js?v=4' index.html
           grep -F 'roles.js?v=1' index.html
           grep -F 'accessibility.css?v=1' index.html
           grep -F 'accessibility.js?v=1' index.html
+
+      # app.js wird als lesbarer Quelltext gefuehrt. Der Test faellt aus, sobald
+      # Laufzeitdekodierung, eine zweite globale Schnittstelle oder eine
+      # fehlende Kernfunktion zurueckkehrt.
+      - name: Verify readable application core
+        run: node --test test/app-source.test.js
 
       - name: Verify demo makes no backend calls
         run: |

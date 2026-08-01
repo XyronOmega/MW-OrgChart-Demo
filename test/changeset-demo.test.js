@@ -267,21 +267,18 @@ describe('Beispieldaten', () => {
 
 describe('Abgleich mit der Basis-Demo', () => {
   /**
-   * app.js liefert seine Ausgangsknoten in einem gepackten Block aus. Der Test
-   * entpackt ihn und stellt sicher, dass die Rückfallliste im Zusatzmodul
-   * dieselben Knoten kennt – sonst zeigte die Vorschau beim ersten Besuch
-   * einen falschen Ausgangsstand.
+   * app.js liefert die Ausgangsknoten der Demo. Der Test stellt sicher, dass
+   * die Rückfallliste im Zusatzmodul dieselben Knoten kennt – sonst zeigte die
+   * Vorschau beim ersten Besuch einen falschen Ausgangsstand.
+   *
+   * Seit app.js als lesbarer Quelltext geführt wird, entfällt das Entpacken.
    */
-  test('die Rückfallknoten stimmen mit app.js überein', async () => {
-    const { gunzipSync } = await import('node:zlib')
-    const packed = readFileSync(join(here, '..', 'app.js'), 'utf8')
-    const base64 = /b="([A-Za-z0-9+/=]+)"/.exec(packed)?.[1]
-    assert.ok(base64, 'Der gepackte Block in app.js wurde nicht gefunden.')
-    const decoded = gunzipSync(Buffer.from(base64, 'base64')).toString('utf8')
-    const body = /const defaultNodes=\[(.*?)\n\];/s.exec(decoded)?.[1]
+  test('die Rückfallknoten stimmen mit app.js überein', () => {
+    const source = readFileSync(join(here, '..', 'app.js'), 'utf8')
+    const body = /const defaultNodes = \[(.*?)\n\s*\];/s.exec(source)?.[1]
     assert.ok(body, 'defaultNodes wurden in app.js nicht gefunden.')
 
-    const appIds = [...body.matchAll(/id:'([^']+)'/g)].map((match) => match[1]).sort()
+    const appIds = [...body.matchAll(/id: '([^']+)'/g)].map((match) => match[1]).sort()
     const fallbackIds = mod.api.fallbackNodes.map((node) => node.id).sort()
     assertSame(fallbackIds, appIds, 'Rückfallknoten und app.js sind auseinandergelaufen.')
   })
