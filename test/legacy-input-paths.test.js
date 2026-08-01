@@ -1,7 +1,6 @@
 import test, { describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
-import { gunzipSync } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -26,19 +25,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const read = (name) => readFileSync(join(root, name), 'utf8')
 
-/**
- * app.js wird als gzip-Block ausgeliefert. Für den Bestand zählt der entpackte
- * Inhalt; die Datei selbst bleibt unverändert.
- */
-const sourceOf = (name) => {
-  const raw = read(name)
-  if (name !== 'app.js') return raw
-  const base64 = /b="([A-Za-z0-9+/=]+)"/.exec(raw)?.[1]
-  if (!base64) return raw
-  return gunzipSync(Buffer.from(base64, 'base64')).toString('utf8')
-}
-
-/** Alle ausgelieferten Skripte; app.js wird gesondert betrachtet. */
+/** Alle ausgelieferten Skripte. */
 const shippedScripts = () => {
   const html = read('index.html')
   return [...html.matchAll(/<script src="([^"?]+)/g)].map((match) => match[1])
@@ -73,7 +60,7 @@ describe('Systemdialoge in Erfassung und Bearbeitung', () => {
   test('kein ausgeliefertes Skript verwendet unerfasste Systemdialoge', () => {
     const abweichungen = []
     shippedScripts().forEach((name) => {
-      const gefunden = countDialogs(sourceOf(name))
+      const gefunden = countDialogs(read(name))
       const erwartet = REMAINING_SYSTEM_DIALOGS[name] || 0
       if (gefunden > erwartet) abweichungen.push(`${name}: ${gefunden} statt höchstens ${erwartet}`)
     })
@@ -84,7 +71,7 @@ describe('Systemdialoge in Erfassung und Bearbeitung', () => {
     // person-groups.js wurde im Referenzfall von Paket 1 umgestellt.
     const umgestellt = ['person-groups.js', 'edit-mask.js', 'roles.js', 'accessibility.js', 'ui-lifecycle.js', 'navigation-shell.js']
     umgestellt.forEach((name) => {
-      assert.equal(countDialogs(sourceOf(name)), 0, `${name} verwendet wieder einen Systemdialog.`)
+      assert.equal(countDialogs(read(name)), 0, `${name} verwendet wieder einen Systemdialog.`)
     })
   })
 
@@ -100,7 +87,7 @@ describe('Systemdialoge in Erfassung und Bearbeitung', () => {
     // enthält, wäre eine Rückkehr unbemerkt möglich.
     const zuHoch = []
     Object.entries(REMAINING_SYSTEM_DIALOGS).forEach(([name, erwartet]) => {
-      const gefunden = countDialogs(sourceOf(name))
+      const gefunden = countDialogs(read(name))
       if (gefunden < erwartet) zuHoch.push(`${name}: nur noch ${gefunden} statt ${erwartet} – Bestand bitte senken`)
     })
     assert.deepEqual(zuHoch, [], zuHoch.join(' | '))
@@ -111,7 +98,6 @@ describe('Schwebende Bearbeitungsformulare', () => {
   test('nur der bekannte Bestand erzeugt Formulare außerhalb des Inhaltsbereichs', () => {
     const abweichungen = []
     shippedScripts().forEach((name) => {
-      if (name === 'app.js') return // gepackt, gesondert geprüft
       const source = read(name)
       // Ein Formular gilt als schwebend, wenn es an document.body gehängt oder
       // als aria-modal ausgezeichnet wird und Eingabefelder enthält.

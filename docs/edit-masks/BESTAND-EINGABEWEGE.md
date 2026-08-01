@@ -1,13 +1,15 @@
 # Bestand aller Eingabewege
 
-Stand: Branch `refactor/page-based-edit-masks`, ausgehend von `main` (`c078b47`).
+Stand: Branch `refactor/page-based-edit-masks`, ausgehend von `main` (`5e458b8`,
+nach dem Merge von PR #11 „app.js als lesbaren Quelltext führen“).
 
 Erfasst wurden alle Stellen, an denen Daten erzeugt oder verändert werden. Als
 Eingabeweg zählt jede Interaktion, die den `localStorage` beschreibt, sowie jede
 Rückfrage, die einer Eingabe vorausgeht.
 
 Grundlage: statische Durchsicht aller in `index.html` eingebundenen Skripte
-sowie des entpackten Inhalts von `app.js` (nur gelesen, nicht verändert).
+sowie von `app.js`. Der Bestand wurde ursprünglich am entpackten Inhalt erhoben;
+seit PR #11 liegt `app.js` als lesbarer Quelltext vor und wird unmittelbar geprüft.
 
 **Zusammenfassung**
 

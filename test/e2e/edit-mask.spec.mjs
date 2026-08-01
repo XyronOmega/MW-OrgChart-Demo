@@ -71,9 +71,12 @@ const skipIfNoBrowser = (t) => {
 const openPage = async (viewport = { width: 1440, height: 900 }) => {
   const page = await browser.newPage({ viewport })
   const dialoge = []
+  const fehler = []
   page.on('dialog', async (dialog) => { dialoge.push(`${dialog.type()}: ${dialog.message()}`); await dialog.dismiss() })
+  page.on('pageerror', (error) => fehler.push('pageerror: ' + error.message))
+  page.on('console', (message) => { if (message.type() === 'error') fehler.push('console: ' + message.text()) })
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 15000 })
-  return { page, dialoge }
+  return { page, dialoge, fehler }
 }
 
 const login = async (page, role = 'admin') => {
@@ -594,9 +597,9 @@ describe('Tastaturbedienung und Darstellung', () => {
 })
 
 describe('Keine verbotenen Darstellungsformen', () => {
-  test('im gesamten Ablauf erscheint kein Systemdialog', async (t) => {
+  test('im gesamten Ablauf erscheinen weder Systemdialog noch Laufzeitfehler', async (t) => {
     if (skipIfNoBrowser(t)) return
-    const { page, dialoge } = await openPage()
+    const { page, dialoge, fehler } = await openPage()
     await login(page)
     await openGroupsView(page)
     await openCreateMask(page)
@@ -610,6 +613,10 @@ describe('Keine verbotenen Darstellungsformen', () => {
     await page.locator('[data-mw-mask-danger-confirm]').click()
     await page.waitForSelector('[data-person-groups-page]', { timeout: 8000 })
     assert.deepEqual(dialoge, [], 'Systemdialoge im Ablauf: ' + dialoge.join(' | '))
+    // Speichern, Loeschen und die Rueckkehr zur Liste duerfen keinen Fehler
+    // hinterlassen. `onSave` verlaesst die Maske selbst; der Maskenzustand ist
+    // danach bereits abgeraeumt.
+    assert.deepEqual(fehler, [], 'Laufzeitfehler im Ablauf: ' + fehler.join(' | '))
     await page.close()
   })
 

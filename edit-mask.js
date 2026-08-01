@@ -366,7 +366,7 @@
   // --- Abläufe -------------------------------------------------------------
 
   const submit = () => {
-    if (active.config.readOnly) return
+    if (!active || active.config.readOnly) return
     active.errors = validateValues(active.config.sections, active.values, active.config.validate)
     active.showAllErrors = Object.keys(active.errors).length > 0
     if (active.showAllErrors) {
@@ -375,6 +375,10 @@
       return
     }
     const result = active.config.onSave?.({ ...active.values })
+    // `onSave` darf die Maske selbst verlassen und die Ausgangsansicht wieder
+    // aufbauen – der Referenzfall tut genau das. Danach gibt es keinen
+    // Maskenzustand mehr, den wir nachführen könnten.
+    if (!active) return
     if (result && result.error) {
       active.errors = result.field ? { [result.field]: result.error } : {}
       active.showAllErrors = true
