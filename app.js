@@ -1,1 +1,1021 @@
-(async()=>{const b="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";const bytes=Uint8Array.from(atob(b),c=>c.charCodeAt(0));const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));const code=await new Response(stream).text();new Function(code)();})().catch(error=>{console.error(error);document.body.insertAdjacentHTML("beforeend",`<p style="padding:20px;color:#7e151b">Die Demo konnte nicht geladen werden: ${error.message}</p>`);});
+/**
+ * Kern der MW-OrgChart-Demo: Anmeldung, Navigation, Organigramm, Personen-,
+ * Organisations-, Standort- und Funktionsverwaltung, Profil und Datenqualität.
+ *
+ * Herkunft dieser Datei
+ * ---------------------
+ * Bis einschließlich `c078b47` wurde dieser Quelltext als gzip-komprimierter,
+ * base64-kodierter Block ausgeliefert und zur Laufzeit über
+ * `DecompressionStream` entpackt und mit `new Function(code)()` ausgeführt.
+ * Ein lesbarer Originalquelltext existierte in der Git-Historie nicht – die
+ * Datei war bereits im ersten Commit (`5491534`) gepackt.
+ *
+ * Der Block wurde mit `tools/unpack-app.mjs` entpackt und mit Prettier
+ * umbrochen. Verändert wurden ausschließlich Zeilenumbrüche und Einrückung;
+ * Bezeichner, Reihenfolge, Zeichenketten und Logik sind unverändert. Das
+ * Verfahren und die Prüfsummen stehen in `docs/app-source/ENTPACKEN.md`.
+ *
+ * Geltungsbereich
+ * ---------------
+ * Der Inhalt lief bisher im Funktionsrumpf von `new Function(code)()` und war
+ * damit gegen den globalen Namensraum abgeschottet. Die umschließende
+ * Funktion hier hält denselben Geltungsbereich aufrecht: Die einzige
+ * beabsichtigte globale Schnittstelle ist `window.closeDrawer`, die weiter
+ * unten unverändert gesetzt wird und vom `onclick` der Schließen-Schaltfläche
+ * im Personenprofil benötigt wird.
+ */
+(() => {
+  const el = (id) => document.getElementById(id);
+  const roleSelect = el('roleSelect'),
+    roleInfo = el('roleInfo'),
+    loginBtn = el('loginBtn'),
+    loginPage = el('loginPage'),
+    app = el('app'),
+    switchRoleBtn = el('switchRoleBtn'),
+    resetBtn = el('resetBtn'),
+    userName = el('userName'),
+    userRole = el('userRole'),
+    nav = el('nav'),
+    content = el('content'),
+    drawerBackdrop = el('drawerBackdrop'),
+    drawer = el('drawer');
+  const roles = {
+    viewer: {
+      label: 'Leser',
+      name: 'Alex Beispiel',
+      email: 'alex.beispiel@example.org',
+      views: ['chart', 'profile'],
+    },
+    editor: {
+      label: 'Bereichsredaktion',
+      name: 'Mika Muster',
+      email: 'mika.muster@example.org',
+      views: ['chart', 'profile', 'people', 'units', 'quality'],
+    },
+    admin: {
+      label: 'Administrator',
+      name: 'Robin Demo',
+      email: 'robin.demo@example.org',
+      views: ['chart', 'profile', 'admin', 'locations', 'functions', 'styles', 'people', 'units', 'quality'],
+    },
+    superadmin: {
+      label: 'Superadministrator',
+      name: 'Sam Test',
+      email: 'sam.test@example.org',
+      views: ['chart', 'profile', 'admin', 'locations', 'functions', 'styles', 'people', 'units', 'quality'],
+    },
+  };
+  const navItems = [
+    ['chart', 'Organigramm'],
+    ['profile', 'Mein Profil'],
+    ['admin', 'Admin-Center'],
+    ['locations', 'Standorte'],
+    ['functions', 'Zusatzfunktionen'],
+    ['styles', 'Kartenstile'],
+    ['people', 'Personen'],
+    ['units', 'Organisationseinheiten'],
+    ['quality', 'Datenqualität'],
+  ];
+  const unitLabels = { company: 'Unternehmen', section: 'Sektion', department: 'Abteilung', team: 'Team' };
+  const unitParentTypes = {
+    section: ['company'],
+    department: ['company', 'section'],
+    team: ['company', 'section', 'department'],
+  };
+  const defaultLocations = [
+    { id: 'loc1', name: 'Zentrale', address: 'Beispielstraße 10, München', active: true },
+    { id: 'loc2', name: 'Servicecenter Nord', address: 'Musterweg 4, München', active: true },
+    { id: 'loc3', name: 'Technikstandort', address: 'Demoplatz 8, München', active: true },
+  ];
+  const defaultFunctions = [
+    { id: 'f1', name: 'Projektkoordination', category: 'project', icon: '◆' },
+    { id: 'f2', name: 'Datenschutz', category: 'tech', icon: '▣' },
+    { id: 'f3', name: 'Arbeitsschutz', category: 'safety', icon: '⚠' },
+    { id: 'f4', name: 'Onboarding', category: 'people', icon: '●' },
+    { id: 'f5', name: 'IT-Koordination', category: 'tech', icon: '⌘' },
+    { id: 'f6', name: 'BEM', category: 'people', icon: '♥' },
+  ];
+  const defaultNodes = [
+    {
+      id: 'mw',
+      parent: null,
+      type: 'company',
+      name: 'Münchner Wohnen',
+      subtitle: 'Organisationsübersicht',
+      accent: '#070042',
+    },
+    {
+      id: 'prv',
+      parent: 'mw',
+      type: 'section',
+      name: 'Personal, Recht und Verwaltung',
+      subtitle: 'Sektion',
+      accent: '#070042',
+    },
+    {
+      id: 'pm',
+      parent: 'prv',
+      type: 'department',
+      name: 'Personalmanagement',
+      subtitle: 'Abteilung',
+      accent: '#99e7ff',
+    },
+    {
+      id: 'pa',
+      parent: 'prv',
+      type: 'department',
+      name: 'Personaladministration',
+      subtitle: 'Abteilung',
+      accent: '#fda8ff',
+    },
+    {
+      id: 'pe',
+      parent: 'prv',
+      type: 'department',
+      name: 'Personalentwicklung',
+      subtitle: 'Abteilung',
+      accent: '#a8ffab',
+    },
+    {
+      id: 'pc',
+      parent: 'prv',
+      type: 'department',
+      name: 'Personalcontrolling',
+      subtitle: 'Abteilung',
+      accent: '#ff757b',
+    },
+    {
+      id: 'pm-hrbp',
+      parent: 'pm',
+      type: 'team',
+      name: 'HR Business Partner',
+      subtitle: 'Team',
+      accent: '#a8ffab',
+    },
+    { id: 'pm-sb', parent: 'pm', type: 'team', name: 'Sachbearbeitung', subtitle: 'Team', accent: '#a8ffab' },
+    {
+      id: 'pa-pay',
+      parent: 'pa',
+      type: 'team',
+      name: 'Entgeltabrechnung',
+      subtitle: 'Team',
+      accent: '#fda8ff',
+    },
+    {
+      id: 'pa-time',
+      parent: 'pa',
+      type: 'team',
+      name: 'Zeitwirtschaft',
+      subtitle: 'Team',
+      accent: '#fda8ff',
+    },
+    {
+      id: 'pe-learning',
+      parent: 'pe',
+      type: 'team',
+      name: 'Ausbildung & Weiterbildung',
+      subtitle: 'Team',
+      accent: '#a8ffab',
+    },
+    {
+      id: 'pe-onboarding',
+      parent: 'pe',
+      type: 'team',
+      name: 'Onboarding',
+      subtitle: 'Team',
+      accent: '#a8ffab',
+    },
+    { id: 'pc-bgsm', parent: 'pc', type: 'team', name: 'BGSM', subtitle: 'Team', accent: '#99e7ff' },
+    {
+      id: 'pc-control',
+      parent: 'pc',
+      type: 'team',
+      name: 'HR-Controlling',
+      subtitle: 'Team',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p1',
+      parent: 'pm-hrbp',
+      type: 'person',
+      name: 'Lea Beispiel',
+      role: 'HR Business Partner',
+      email: 'lea.beispiel@example.org',
+      phone: '089 100001',
+      location: 'Zentrale',
+      functions: ['Projektkoordination'],
+      status: 'Aktiv',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p2',
+      parent: 'pm-hrbp',
+      type: 'person',
+      name: 'Noah Muster',
+      role: 'HR Business Partner',
+      email: 'noah.muster@example.org',
+      phone: '089 100002',
+      location: 'Zentrale',
+      functions: ['Datenschutz'],
+      status: 'Aktiv',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p3',
+      parent: 'pm-sb',
+      type: 'person',
+      name: 'Mila Demo',
+      role: 'Sachbearbeitung',
+      email: 'mila.demo@example.org',
+      phone: '089 100003',
+      location: 'Servicecenter Nord',
+      functions: ['Onboarding'],
+      status: 'Aktiv',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p4',
+      parent: 'pa-pay',
+      type: 'person',
+      name: 'Elias Test',
+      role: 'Entgeltabrechnung',
+      email: 'elias.test@example.org',
+      phone: '089 100004',
+      location: 'Zentrale',
+      functions: ['BEM'],
+      status: 'Aktiv',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p5',
+      parent: 'pa-time',
+      type: 'person',
+      name: 'Lina Probe',
+      role: 'Zeitwirtschaft',
+      email: 'lina.probe@example.org',
+      phone: '089 100005',
+      location: 'Servicecenter Nord',
+      functions: [],
+      status: 'Elternzeit',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p6',
+      parent: 'pe-learning',
+      type: 'person',
+      name: 'Finn Beispiel',
+      role: 'Personalentwicklung',
+      email: 'finn.beispiel@example.org',
+      phone: '089 100006',
+      location: 'Zentrale',
+      functions: ['Projektkoordination'],
+      status: 'Aktiv',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p7',
+      parent: 'pe-onboarding',
+      type: 'person',
+      name: 'Emma Muster',
+      role: 'Onboarding',
+      email: 'emma.muster@example.org',
+      phone: '089 100007',
+      location: 'Zentrale',
+      functions: ['Onboarding'],
+      status: 'Aktiv',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p8',
+      parent: 'pc-bgsm',
+      type: 'person',
+      name: 'Luis Demo',
+      role: 'BGSM',
+      email: 'luis.demo@example.org',
+      phone: '089 100008',
+      location: 'Technikstandort',
+      functions: ['Arbeitsschutz', 'BEM'],
+      status: 'Aktiv',
+      accent: '#ff757b',
+    },
+    {
+      id: 'p9',
+      parent: 'pc-control',
+      type: 'person',
+      name: 'Sofia Test',
+      role: 'HR-Controlling',
+      email: 'sofia.test@example.org',
+      phone: '089 100009',
+      location: 'Zentrale',
+      functions: ['IT-Koordination'],
+      status: 'Aktiv',
+      accent: '#ff757b',
+    },
+  ];
+  const clone = (value) => JSON.parse(JSON.stringify(value));
+  const load = (key, fallback) => {
+    try {
+      return JSON.parse(localStorage.getItem(key)) || clone(fallback);
+    } catch {
+      return clone(fallback);
+    }
+  };
+  let state = {
+    role: 'viewer',
+    view: 'chart',
+    editMode: false,
+    query: '',
+    selectedStyle: 'standard',
+    nodes: load('mw-demo-nodes', defaultNodes),
+    locations: load('mw-demo-locations', defaultLocations),
+    functions: load('mw-demo-functions', defaultFunctions),
+    profile: load('mw-demo-profile', {
+      phone: '089 123456',
+      mobile: '0170 1234567',
+      location: 'Zentrale',
+      about: 'Demo-Profil für die öffentliche Vorschau.',
+    }),
+  };
+  let draggedId = null,
+    unitDraft = null,
+    personDraft = null;
+  const save = () => {
+    localStorage.setItem('mw-demo-nodes', JSON.stringify(state.nodes));
+    localStorage.setItem('mw-demo-locations', JSON.stringify(state.locations));
+    localStorage.setItem('mw-demo-functions', JSON.stringify(state.functions));
+    localStorage.setItem('mw-demo-profile', JSON.stringify(state.profile));
+  };
+  const esc = (v) =>
+    String(v ?? '').replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c],
+    );
+  const canEdit = () => state.role !== 'viewer';
+  const isAdmin = () => state.role === 'admin' || state.role === 'superadmin';
+  const viewHead = (title, text, actions = '') =>
+    `<div class="view-head"><div><h2>${esc(title)}</h2><p>${esc(text)}</p></div><div class="actions">${actions}</div></div>`;
+  const table = (headers, rows) =>
+    `<div class="table-wrap"><table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${headers.length}">Keine Einträge vorhanden.</td></tr>`}</tbody></table></div>`;
+  function unitPath(id) {
+    const parts = [],
+      seen = new Set();
+    let current = state.nodes.find((n) => n.id === id);
+    while (current && !seen.has(current.id)) {
+      parts.unshift(current.name);
+      seen.add(current.id);
+      current = current.parent ? state.nodes.find((n) => n.id === current.parent) : null;
+    }
+    return parts;
+  }
+  function unitOptions() {
+    return state.nodes
+      .filter((n) => n.type !== 'person')
+      .sort((a, b) => unitPath(a.id).join(' / ').localeCompare(unitPath(b.id).join(' / '), 'de'));
+  }
+  function functionMeta(name) {
+    return state.functions.find((f) => f.name === name) || { name, category: 'project', icon: '◆' };
+  }
+  function badgeHtml(name) {
+    const f = functionMeta(name);
+    return `<span class="badge ${esc(f.category)}"><span aria-hidden="true">${esc(f.icon)}</span>${esc(name)}</span>`;
+  }
+  function initLogin() {
+    roleSelect.innerHTML = Object.entries(roles)
+      .map(([key, role]) => `<option value="${key}">${esc(role.label)} – ${esc(role.name)}</option>`)
+      .join('');
+    roleSelect.value = state.role;
+    updateRoleInfo();
+  }
+  function updateRoleInfo() {
+    const role = roles[roleSelect.value];
+    roleInfo.innerHTML = `<strong>${esc(role.label)}</strong><span>${esc(role.name)}</span><span>${esc(role.email)}</span><span>${role.views.length} freigeschaltete Ansichten</span>`;
+  }
+  roleSelect.addEventListener('change', updateRoleInfo);
+  loginBtn.addEventListener('click', () => {
+    state.role = roleSelect.value;
+    loginPage.classList.add('hidden');
+    app.classList.remove('hidden');
+    state.view = 'chart';
+    renderShell();
+  });
+  switchRoleBtn.addEventListener('click', () => {
+    app.classList.add('hidden');
+    loginPage.classList.remove('hidden');
+    roleSelect.value = state.role;
+    updateRoleInfo();
+  });
+  resetBtn.addEventListener('click', () => {
+    if (!confirm('Alle lokalen Demo-Änderungen zurücksetzen?')) return;
+    ['mw-demo-nodes', 'mw-demo-locations', 'mw-demo-functions', 'mw-demo-profile'].forEach((key) =>
+      localStorage.removeItem(key),
+    );
+    state.nodes = clone(defaultNodes);
+    state.locations = clone(defaultLocations);
+    state.functions = clone(defaultFunctions);
+    state.profile = {
+      phone: '089 123456',
+      mobile: '0170 1234567',
+      location: 'Zentrale',
+      about: 'Demo-Profil für die öffentliche Vorschau.',
+    };
+    state.editMode = false;
+    unitDraft = null;
+    personDraft = null;
+    save();
+    renderView();
+  });
+  function renderShell() {
+    const role = roles[state.role];
+    userName.textContent = role.name;
+    userRole.textContent = `${role.label} · ${role.email}`;
+    nav.innerHTML = navItems
+      .filter(([id]) => role.views.includes(id))
+      .map(
+        ([id, label]) =>
+          `<button data-view="${id}" class="${state.view === id ? 'active' : ''}">${esc(label)}</button>`,
+      )
+      .join('');
+    nav.querySelectorAll('button').forEach(
+      (button) =>
+        (button.onclick = () => {
+          state.view = button.dataset.view;
+          unitDraft = null;
+          personDraft = null;
+          renderShell();
+          closeDrawer();
+        }),
+    );
+    renderView();
+  }
+  function renderView() {
+    (
+      ({
+        chart: renderChart,
+        profile: renderProfile,
+        admin: renderAdmin,
+        locations: renderLocations,
+        functions: renderFunctions,
+        styles: renderStyles,
+        people: renderPeople,
+        units: renderUnits,
+        quality: renderQuality,
+      })[state.view] || renderChart
+    )();
+  }
+  function renderNode(node) {
+    const children = state.nodes.filter((n) => n.parent === node.id),
+      isPerson = node.type === 'person',
+      functions = (node.functions || []).map(badgeHtml).join('');
+    return `<div class="tree-node-wrap child-wrap"><button class="node ${isPerson ? 'person' : ''} ${node.type === 'company' ? 'company' : ''}" data-id="${esc(node.id)}" draggable="${state.editMode && node.type !== 'company'}" style="--node-accent:${esc(node.accent || '#070042')}"><div class="node-accent"></div><div class="node-body"><span class="node-type">${esc(node.subtitle || unitLabels[node.type] || node.type)}</span><strong class="node-name">${esc(node.name)}</strong>${node.role ? `<span class="node-role">${esc(node.role)}</span>` : ''}${functions ? `<div class="badges">${functions}</div>` : ''}${node.email ? `<span class="node-contact">${esc(node.email)} · ${esc(node.phone || '')}</span>` : ''}<span class="drag-hint">Ziehen und auf einer Einheit ablegen</span></div></button>${children.length ? `<div class="children">${children.map(renderNode).join('')}</div>` : ''}</div>`;
+  }
+  function renderChart() {
+    const root = state.nodes.find((n) => n.parent === null);
+    content.innerHTML =
+      viewHead(
+        'Organigramm',
+        'Suchen, Profile öffnen und – abhängig von der Rolle – die Struktur lokal bearbeiten.',
+        canEdit()
+          ? `<button id="editModeBtn" class="btn ${state.editMode ? 'btn-secondary' : 'btn-ghost'}">${state.editMode ? 'Strukturmodus beenden' : 'Struktur bearbeiten'}</button>`
+          : '',
+      ) +
+      `<div class="toolbar"><input id="searchInput" placeholder="Name, Rolle, E-Mail oder Zusatzfunktion suchen" value="${esc(state.query)}"><button id="searchBtn" class="btn btn-primary">Suchen</button><button id="clearSearchBtn" class="btn btn-ghost">Zurücksetzen</button></div><p class="notice ${state.editMode ? 'success' : 'hidden'}">Strukturmodus aktiv: Karten per Drag-and-drop auf eine andere Organisationseinheit ziehen.</p><div class="chart-wrap ${state.editMode ? 'edit-mode' : ''}"><div class="tree">${root ? renderNode(root) : '<div class="empty">Keine Organisationsdaten vorhanden.</div>'}</div></div>`;
+    const editBtn = el('editModeBtn'),
+      searchInput = el('searchInput'),
+      searchBtn = el('searchBtn'),
+      clearBtn = el('clearSearchBtn');
+    if (editBtn)
+      editBtn.onclick = () => {
+        state.editMode = !state.editMode;
+        renderChart();
+      };
+    searchBtn.onclick = () => applySearch(searchInput.value);
+    clearBtn.onclick = () => {
+      state.query = '';
+      renderChart();
+    };
+    searchInput.onkeydown = (event) => {
+      if (event.key === 'Enter') applySearch(searchInput.value);
+    };
+    wireNodes();
+    if (state.query) applySearch(state.query);
+  }
+  function wireNodes() {
+    document.querySelectorAll('.node').forEach((nodeElement) => {
+      const id = nodeElement.dataset.id,
+        node = state.nodes.find((item) => item.id === id);
+      nodeElement.onclick = () => {
+        if (node?.type === 'person' && !state.editMode) openDrawer(node);
+      };
+      nodeElement.ondragstart = (event) => {
+        draggedId = id;
+        nodeElement.classList.add('dragging');
+        event.dataTransfer.setData('text/plain', id);
+      };
+      nodeElement.ondragend = () => {
+        draggedId = null;
+        document
+          .querySelectorAll('.node')
+          .forEach((item) => item.classList.remove('dragging', 'drop-target'));
+      };
+      nodeElement.ondragover = (event) => {
+        if (!state.editMode || node?.type === 'person') return;
+        event.preventDefault();
+        nodeElement.classList.add('drop-target');
+      };
+      nodeElement.ondragleave = () => nodeElement.classList.remove('drop-target');
+      nodeElement.ondrop = (event) => {
+        event.preventDefault();
+        nodeElement.classList.remove('drop-target');
+        const source = state.nodes.find(
+          (item) => item.id === (draggedId || event.dataTransfer.getData('text/plain')),
+        );
+        if (!source || source.id === id || node?.type === 'person' || isDescendant(id, source.id))
+          return alert('Diese Verschiebung ist nicht möglich.');
+        source.parent = id;
+        save();
+        renderChart();
+      };
+    });
+  }
+  function isDescendant(target, source) {
+    let current = state.nodes.find((node) => node.id === target);
+    while (current) {
+      if (current.parent === source) return true;
+      current = state.nodes.find((node) => node.id === current.parent);
+    }
+    return false;
+  }
+  function applySearch(value) {
+    state.query = String(value || '')
+      .trim()
+      .toLowerCase();
+    document.querySelectorAll('.node').forEach((element) => {
+      const node = state.nodes.find((item) => item.id === element.dataset.id),
+        hay = [node.name, node.role, node.email, ...(node.functions || [])]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase(),
+        match = !state.query || hay.includes(state.query);
+      element.classList.toggle('highlight', !!state.query && match);
+      element.classList.toggle('dim', !!state.query && !match);
+    });
+  }
+  function openDrawer(person) {
+    drawerBackdrop.classList.remove('hidden');
+    drawer.classList.remove('hidden');
+    drawer.innerHTML = `<div class="drawer-head"><strong>Personenprofil</strong><button class="drawer-close" onclick="closeDrawer()">Schließen</button></div><div class="drawer-body"><div class="avatar">${esc(
+      person.name
+        .split(' ')
+        .map((part) => part[0])
+        .join('')
+        .slice(0, 2),
+    )}</div><h2>${esc(person.name)}</h2><p>${esc(person.role || '')}</p><div class="badges">${(person.functions || []).map(badgeHtml).join('')}</div><div class="detail-list"><div class="detail-row"><span>E-Mail</span><strong>${esc(person.email || '—')}</strong></div><div class="detail-row"><span>Telefon</span><strong>${esc(person.phone || '—')}</strong></div><div class="detail-row"><span>Standort</span><strong>${esc(person.location || '—')}</strong></div><div class="detail-row"><span>Organisation</span><strong>${esc((state.nodes.find((node) => node.id === person.parent) || {}).name || '—')}</strong></div><div class="detail-row"><span>Status</span><strong>${esc(person.status || 'Aktiv')}</strong></div></div></div>`;
+  }
+  function closeDrawer() {
+    drawerBackdrop.classList.add('hidden');
+    drawer.classList.add('hidden');
+  }
+  drawerBackdrop.onclick = closeDrawer;
+  window.closeDrawer = closeDrawer;
+  function renderProfile() {
+    const role = roles[state.role];
+    content.innerHTML =
+      viewHead('Mein Profil', 'Persönliche Kontaktdaten in der Demo bearbeiten.') +
+      `<div class="profile-layout"><section class="profile-card"><div class="avatar">${esc(
+        role.name
+          .split(' ')
+          .map((part) => part[0])
+          .join('')
+          .slice(0, 2),
+      )}</div><h3>${esc(role.name)}</h3><p>${esc(role.label)}<br>${esc(role.email)}</p></section><section class="panel"><h3>Kontaktdaten</h3><div class="form-grid"><label class="field"><span>Telefon</span><input id="profPhone" value="${esc(state.profile.phone)}"></label><label class="field"><span>Mobil</span><input id="profMobile" value="${esc(state.profile.mobile)}"></label><label class="field full"><span>Standort</span><select id="profLocation">${state.locations.map((location) => `<option ${location.name === state.profile.location ? 'selected' : ''}>${esc(location.name)}</option>`).join('')}</select></label><label class="field full"><span>Über mich</span><textarea id="profAbout">${esc(state.profile.about)}</textarea></label></div><button id="saveProfile" class="btn btn-primary">Profil lokal speichern</button><p id="profileMsg" class="notice hidden"></p></section></div>`;
+    el('saveProfile').onclick = () => {
+      state.profile = {
+        phone: el('profPhone').value,
+        mobile: el('profMobile').value,
+        location: el('profLocation').value,
+        about: el('profAbout').value,
+      };
+      save();
+      el('profileMsg').textContent = 'Profil wurde lokal gespeichert.';
+      el('profileMsg').classList.remove('hidden');
+    };
+  }
+  function renderAdmin() {
+    const people = state.nodes.filter((node) => node.type === 'person').length,
+      units = state.nodes.length - people;
+    content.innerHTML =
+      viewHead('Admin-Center', 'Zentrale Übersicht für Rollen, Rechte und Systemzustand.') +
+      `<div class="grid"><section class="panel"><div class="metric">${people}</div><div class="metric-label">aktive Personen</div></section><section class="panel"><div class="metric">${units}</div><div class="metric-label">Organisationseinheiten</div></section><section class="panel"><div class="metric">${state.functions.length}</div><div class="metric-label">Zusatzfunktionen</div></section><section class="panel"><div class="metric">${state.locations.length}</div><div class="metric-label">Standorte</div></section></div><h2 style="margin-top:24px;color:var(--dark)">Verwaltungsbereiche</h2><div class="grid">${[
+        ['locations', 'Standorte', 'Gebäude und Arbeitsorte verwalten.', '#99e7ff'],
+        ['functions', 'Zusatzfunktionen', 'Funktionskatalog und Kategorien pflegen.', '#a8ffab'],
+        ['styles', 'Kartenstile', 'Darstellung der Organigrammkarten testen.', '#fda8ff'],
+        ['people', 'Personen', 'Personen anlegen, bearbeiten und zuordnen.', '#ff757b'],
+        ['units', 'Organisationseinheiten', 'Sektionen, Abteilungen und Teams verwalten.', '#99e7ff'],
+        ['quality', 'Datenqualität', 'Fehlende und inkonsistente Daten finden.', '#a8ffab'],
+      ]
+        .map(
+          (item) =>
+            `<section class="panel feature-card" style="--accent:${item[3]}"><h3>${item[1]}</h3><p>${item[2]}</p><button class="btn btn-ghost btn-small" data-go="${item[0]}">Öffnen</button></section>`,
+        )
+        .join('')}</div>`;
+    content.querySelectorAll('[data-go]').forEach(
+      (button) =>
+        (button.onclick = () => {
+          state.view = button.dataset.go;
+          renderShell();
+        }),
+    );
+  }
+  function renderLocations() {
+    content.innerHTML =
+      viewHead(
+        'Standorte',
+        'Arbeitsorte, Adressen und Status verwalten.',
+        isAdmin() ? '<button id="addLocation" class="btn btn-primary">Standort hinzufügen</button>' : '',
+      ) +
+      table(
+        ['Standort', 'Adresse', 'Status', 'Aktionen'],
+        state.locations.map((location) => [
+          esc(location.name),
+          esc(location.address),
+          `<span class="status ${location.active ? '' : 'warn'}">${location.active ? 'Aktiv' : 'Inaktiv'}</span>`,
+          isAdmin()
+            ? `<button class="btn btn-ghost btn-small" data-toggle-loc="${location.id}">${location.active ? 'Deaktivieren' : 'Aktivieren'}</button>`
+            : 'Nur lesen',
+        ]),
+      );
+    const add = el('addLocation');
+    if (add)
+      add.onclick = () => {
+        const name = prompt('Name des Standorts');
+        if (!name) return;
+        state.locations.push({
+          id: `loc${Date.now()}`,
+          name,
+          address: prompt('Adresse') || 'Keine Adresse',
+          active: true,
+        });
+        save();
+        renderLocations();
+      };
+    content.querySelectorAll('[data-toggle-loc]').forEach(
+      (button) =>
+        (button.onclick = () => {
+          const location = state.locations.find((item) => item.id === button.dataset.toggleLoc);
+          location.active = !location.active;
+          save();
+          renderLocations();
+        }),
+    );
+  }
+  function renderFunctions() {
+    content.innerHTML =
+      viewHead(
+        'Zusatzfunktionen',
+        'Funktions-Badges mit Kategorien und Symbolen verwalten.',
+        isAdmin() ? '<button id="addFunction" class="btn btn-primary">Funktion hinzufügen</button>' : '',
+      ) +
+      table(
+        ['Symbol', 'Bezeichnung', 'Kategorie', 'Verwendung'],
+        state.functions.map((func) => [
+          `<span class="badge ${func.category}">${esc(func.icon)}</span>`,
+          esc(func.name),
+          esc(func.category),
+          `${state.nodes.filter((node) => (node.functions || []).includes(func.name)).length} Personen`,
+        ]),
+      );
+    const add = el('addFunction');
+    if (add)
+      add.onclick = () => {
+        const name = prompt('Name der Zusatzfunktion');
+        if (!name) return;
+        state.functions.push({
+          id: `f${Date.now()}`,
+          name,
+          category: prompt('Kategorie: project, tech, safety oder people', 'project') || 'project',
+          icon: '◆',
+        });
+        save();
+        renderFunctions();
+      };
+  }
+  function renderStyles() {
+    const styles = [
+      ['standard', 'Standard', '#070042', '#fff'],
+      ['management', 'Leitung', '#99e7ff', '#f1fbfd'],
+      ['team', 'Team', '#a8ffab', '#f2fff3'],
+      ['assistant', 'Assistenz', '#fda8ff', '#fff2ff'],
+      ['warning', 'Hinweis', '#ff757b', '#fff4f4'],
+    ];
+    content.innerHTML =
+      viewHead('Kartenstile', 'Vordefinierte Darstellungen für verschiedene Organisationsebenen.') +
+      `<div class="style-grid">${styles.map((style) => `<article class="style-card ${state.selectedStyle === style[0] ? 'selected-style' : ''}"><div class="style-preview" style="--accent:${style[2]}"></div><div class="style-card-body"><h3>${style[1]}</h3><p>Akzent ${style[2]} · Hintergrund ${style[3]}</p><button class="btn btn-ghost btn-small" data-style="${style[0]}">Als Demo-Stil wählen</button></div></article>`).join('')}</div>`;
+    content.querySelectorAll('[data-style]').forEach(
+      (button) =>
+        (button.onclick = () => {
+          state.selectedStyle = button.dataset.style;
+          renderStyles();
+        }),
+    );
+  }
+  function renderPeople() {
+    const people = state.nodes.filter((node) => node.type === 'person');
+    const rows = people.map((person) => [
+      esc(person.name),
+      esc(person.role || ''),
+      esc((state.nodes.find((node) => node.id === person.parent) || {}).name || ''),
+      esc(person.location || ''),
+      `<div class="actions"><button class="btn btn-ghost btn-small" data-profile="${person.id}">Profil</button>${canEdit() ? `<button class="btn btn-ghost btn-small" data-edit-person="${person.id}">Bearbeiten</button>` : ''}</div>`,
+    ]);
+    const builder = personDraft ? personBuilderHtml() : '';
+    content.innerHTML =
+      viewHead(
+        'Personenverwaltung',
+        'Personen mit Stammdaten, Kontakt, Standort, Funktionen und eindeutiger organisatorischer Platzierung pflegen.',
+        canEdit() ? '<button id="addPerson" class="btn btn-primary">Person anlegen</button>' : '',
+      ) +
+      builder +
+      table(['Name', 'Rolle', 'Organisation', 'Standort', 'Aktionen'], rows);
+    const add = el('addPerson');
+    if (add)
+      add.onclick = () => {
+        personDraft = {
+          id: `p${Date.now()}`,
+          name: '',
+          role: '',
+          parent: '',
+          email: '',
+          phone: '',
+          location: '',
+          status: 'Aktiv',
+          functions: [],
+        };
+        renderPeople();
+      };
+    wirePersonBuilder();
+    content
+      .querySelectorAll('[data-profile]')
+      .forEach(
+        (button) =>
+          (button.onclick = () => openDrawer(state.nodes.find((node) => node.id === button.dataset.profile))),
+      );
+    content.querySelectorAll('[data-edit-person]').forEach(
+      (button) =>
+        (button.onclick = () => {
+          const person = state.nodes.find((node) => node.id === button.dataset.editPerson);
+          personDraft = clone(person);
+          renderPeople();
+        }),
+    );
+  }
+  function personBuilderHtml() {
+    const options = unitOptions();
+    return `<section class="builder"><h3>${state.nodes.some((node) => node.id === personDraft.id) ? 'Person bearbeiten' : 'Neue Person'}</h3><p>Stammdaten erfassen und die genaue Position im Organigramm auswählen.</p><div class="placement ${personDraft.parent ? 'complete' : ''}"><strong>Vorgesehene Platzierung</strong><span id="personPlacement"></span></div><div class="builder-section"><h4>Person und Zuordnung</h4><div class="builder-grid"><label class="field"><span>Name *</span><input id="personName" value="${esc(personDraft.name)}"></label><label class="field"><span>Aufgabe / Stellenbezeichnung *</span><input id="personRole" value="${esc(personDraft.role)}"></label><label class="field builder-wide"><span>Primäre Organisationseinheit *</span><select id="personParent"><option value="">Bitte auswählen</option>${options.map((unit) => `<option value="${unit.id}" ${unit.id === personDraft.parent ? 'selected' : ''}>${esc(unitPath(unit.id).join(' › '))} · ${esc(unitLabels[unit.type])}</option>`).join('')}</select><small>Diese Auswahl bestimmt, an welcher Stelle die Person im Organigramm erscheint.</small></label><label class="field"><span>Beschäftigungsstatus</span><select id="personStatus">${['Aktiv', 'Elternzeit', 'Langzeitabwesend', 'Sabbatical', 'Ruhestand', 'Inaktiv'].map((status) => `<option ${status === personDraft.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label><label class="field"><span>Standort</span><select id="personLocation"><option value="">Bitte auswählen</option>${state.locations
+      .filter((location) => location.active)
+      .map(
+        (location) =>
+          `<option ${location.name === personDraft.location ? 'selected' : ''}>${esc(location.name)}</option>`,
+      )
+      .join(
+        '',
+      )}</select></label></div></div><div class="builder-section"><h4>Kontakt</h4><div class="builder-grid"><label class="field"><span>E-Mail *</span><input id="personEmail" type="email" value="${esc(personDraft.email)}"></label><label class="field"><span>Telefon</span><input id="personPhone" value="${esc(personDraft.phone || '')}"></label></div></div><div class="builder-section"><h4>Zusatzfunktionen</h4><div class="checkbox-grid">${state.functions.map((func) => `<label class="check"><input type="checkbox" data-person-function="${esc(func.name)}" ${(personDraft.functions || []).includes(func.name) ? 'checked' : ''}><span>${badgeHtml(func.name)}</span></label>`).join('')}</div></div><p id="personFormMessage" class="notice hidden"></p><div class="actions"><button id="savePerson" class="btn btn-primary">${state.nodes.some((node) => node.id === personDraft.id) ? 'Änderungen speichern' : 'Person anlegen'}</button><button id="cancelPerson" class="btn btn-ghost">Abbrechen</button></div></section>`;
+  }
+  function wirePersonBuilder() {
+    if (!personDraft) return;
+    const fields = {
+      name: el('personName'),
+      role: el('personRole'),
+      parent: el('personParent'),
+      status: el('personStatus'),
+      location: el('personLocation'),
+      email: el('personEmail'),
+      phone: el('personPhone'),
+      placement: el('personPlacement'),
+      message: el('personFormMessage'),
+    };
+    const sync = () => {
+      personDraft.name = fields.name.value;
+      personDraft.role = fields.role.value;
+      personDraft.parent = fields.parent.value;
+      personDraft.status = fields.status.value;
+      personDraft.location = fields.location.value;
+      personDraft.email = fields.email.value;
+      personDraft.phone = fields.phone.value;
+      personDraft.functions = [...document.querySelectorAll('[data-person-function]:checked')].map(
+        (input) => input.dataset.personFunction,
+      );
+      fields.placement.textContent = personDraft.parent
+        ? [...unitPath(personDraft.parent), personDraft.name.trim() || 'Neue Person'].join(' › ')
+        : 'Bitte die primäre Organisationseinheit auswählen.';
+    };
+    Object.values(fields)
+      .filter((field) => field && ['INPUT', 'SELECT'].includes(field.tagName))
+      .forEach((field) => {
+        field.oninput = sync;
+        field.onchange = sync;
+      });
+    document.querySelectorAll('[data-person-function]').forEach((input) => (input.onchange = sync));
+    sync();
+    el('cancelPerson').onclick = () => {
+      personDraft = null;
+      renderPeople();
+    };
+    el('savePerson').onclick = () => {
+      sync();
+      const message = (text) => {
+        fields.message.textContent = text;
+        fields.message.className = 'notice error';
+      };
+      if (!personDraft.name.trim()) return message('Bitte einen Namen eingeben.');
+      if (!personDraft.role.trim()) return message('Bitte eine Aufgabe oder Stellenbezeichnung eingeben.');
+      if (!personDraft.parent) return message('Bitte die primäre Organisationseinheit auswählen.');
+      if (!personDraft.email.trim()) return message('Bitte eine E-Mail-Adresse eingeben.');
+      if (
+        state.nodes.some(
+          (node) =>
+            node.type === 'person' &&
+            node.id !== personDraft.id &&
+            String(node.email || '').toLowerCase() === personDraft.email.trim().toLowerCase(),
+        )
+      )
+        return message('Diese E-Mail-Adresse ist bereits einer anderen Person zugeordnet.');
+      const existing = state.nodes.find((node) => node.id === personDraft.id);
+      const next = {
+        ...personDraft,
+        name: personDraft.name.trim(),
+        role: personDraft.role.trim(),
+        email: personDraft.email.trim(),
+        phone: personDraft.phone.trim(),
+        accent: '#ff757b',
+        type: 'person',
+      };
+      if (existing) Object.assign(existing, next);
+      else state.nodes.push(next);
+      personDraft = null;
+      save();
+      renderPeople();
+    };
+  }
+  function unitParentOptions(type) {
+    return state.nodes
+      .filter((node) => node.type !== 'person' && unitParentTypes[type]?.includes(node.type))
+      .sort((a, b) => unitPath(a.id).join(' / ').localeCompare(unitPath(b.id).join(' / '), 'de'));
+  }
+  function renderUnits() {
+    const units = state.nodes
+      .filter((node) => node.type !== 'person')
+      .map((unit) => [
+        esc(unit.name),
+        esc(unitLabels[unit.type] || unit.subtitle || unit.type),
+        esc((state.nodes.find((node) => node.id === unit.parent) || {}).name || '—'),
+        state.nodes.filter((node) => node.parent === unit.id).length,
+        canEdit()
+          ? `<button class="btn btn-ghost btn-small" data-rename="${unit.id}">Umbenennen</button>`
+          : 'Nur lesen',
+      ]);
+    const builder = unitDraft ? unitBuilderHtml() : '';
+    content.innerHTML =
+      viewHead(
+        'Organisationseinheiten',
+        'Sektionen, Abteilungen und Teams mit eindeutiger Platzierung pflegen.',
+        canEdit() ? '<button id="addUnit" class="btn btn-primary">Organisationseinheit anlegen</button>' : '',
+      ) +
+      builder +
+      table(['Bezeichnung', 'Ebene', 'Übergeordnet', 'Untergeordnete Einträge', 'Aktionen'], units);
+    const add = el('addUnit');
+    if (add)
+      add.onclick = () => {
+        unitDraft = { type: '', parent: '', name: '' };
+        renderUnits();
+      };
+    wireUnitBuilder();
+    content.querySelectorAll('[data-rename]').forEach(
+      (button) =>
+        (button.onclick = () => {
+          const unit = state.nodes.find((node) => node.id === button.dataset.rename),
+            next = prompt('Neue Bezeichnung', unit.name);
+          if (next) {
+            unit.name = next;
+            save();
+            renderUnits();
+          }
+        }),
+    );
+  }
+  function unitBuilderHtml() {
+    return `<section class="builder"><h3>Neue Organisationseinheit</h3><p>Zuerst die Ebene und anschließend die genaue Platzierung im Organigramm auswählen.</p><div class="builder-grid"><label class="field"><span>Typ *</span><select id="unitType"><option value="">Typ auswählen</option><option value="section" ${unitDraft.type === 'section' ? 'selected' : ''}>Sektion</option><option value="department" ${unitDraft.type === 'department' ? 'selected' : ''}>Abteilung</option><option value="team" ${unitDraft.type === 'team' ? 'selected' : ''}>Team</option></select></label><label class="field"><span>Übergeordnete Einheit *</span><select id="unitParent" ${unitDraft.type ? '' : 'disabled'}></select></label><div class="placement builder-wide"><strong>Vorgesehene Platzierung</strong><span id="unitPlacement"></span></div><label class="field builder-wide"><span>Name *</span><input id="unitName" value="${esc(unitDraft.name)}" placeholder="Bezeichnung der neuen Einheit"></label></div><p id="unitFormMessage" class="notice hidden"></p><div class="actions"><button id="saveUnit" class="btn btn-primary">Einheit anlegen</button><button id="cancelUnit" class="btn btn-ghost">Abbrechen</button></div></section>`;
+  }
+  function wireUnitBuilder() {
+    if (!unitDraft) return;
+    const type = el('unitType'),
+      parent = el('unitParent'),
+      name = el('unitName'),
+      placement = el('unitPlacement'),
+      message = el('unitFormMessage');
+    const refresh = () => {
+      unitDraft.type = type.value;
+      unitDraft.name = name.value;
+      const parents = unitParentOptions(unitDraft.type);
+      if (!parents.some((item) => item.id === unitDraft.parent)) unitDraft.parent = '';
+      parent.disabled = !unitDraft.type;
+      parent.innerHTML =
+        `<option value="">${unitDraft.type ? 'Platzierung auswählen' : 'Zuerst Typ auswählen'}</option>` +
+        parents
+          .map(
+            (item) =>
+              `<option value="${item.id}" ${item.id === unitDraft.parent ? 'selected' : ''}>${esc(unitPath(item.id).join(' › '))} · ${esc(unitLabels[item.type])}</option>`,
+          )
+          .join('');
+      placement.textContent = !unitDraft.type
+        ? 'Zuerst den Typ der neuen Einheit auswählen.'
+        : !unitDraft.parent
+          ? `Anschließend auswählen, unter welcher Einheit die ${unitLabels[unitDraft.type]} angelegt wird.`
+          : [
+              ...unitPath(unitDraft.parent),
+              unitDraft.name.trim() || `Neue ${unitLabels[unitDraft.type]}`,
+            ].join(' › ');
+    };
+    type.onchange = refresh;
+    parent.onchange = () => {
+      unitDraft.parent = parent.value;
+      refresh();
+    };
+    name.oninput = refresh;
+    refresh();
+    el('cancelUnit').onclick = () => {
+      unitDraft = null;
+      renderUnits();
+    };
+    el('saveUnit').onclick = () => {
+      const show = (text) => {
+        message.textContent = text;
+        message.className = 'notice error';
+      };
+      if (!unitDraft.type) return show('Bitte zuerst den Typ auswählen.');
+      if (!unitDraft.parent) return show('Bitte die übergeordnete Einheit auswählen.');
+      if (!unitDraft.name.trim()) return show('Bitte einen Namen eingeben.');
+      state.nodes.push({
+        id: `unit${Date.now()}`,
+        parent: unitDraft.parent,
+        type: unitDraft.type,
+        name: unitDraft.name.trim(),
+        subtitle: unitLabels[unitDraft.type],
+        accent:
+          unitDraft.type === 'section' ? '#070042' : unitDraft.type === 'department' ? '#99e7ff' : '#a8ffab',
+      });
+      unitDraft = null;
+      save();
+      renderUnits();
+    };
+  }
+  function renderQuality() {
+    const people = state.nodes.filter((node) => node.type === 'person'),
+      missingPhone = people.filter((person) => !person.phone).length,
+      missingLocation = people.filter((person) => !person.location).length,
+      withoutFunction = people.filter((person) => (person.functions || []).length === 0).length,
+      orphans = state.nodes.filter(
+        (node) => node.parent && !state.nodes.some((item) => item.id === node.parent),
+      ).length,
+      checks = [
+        [
+          'Pflichtfelder',
+          'Name, Rolle und E-Mail sind bei allen Personen vorhanden.',
+          people.every((person) => person.name && person.role && person.email) ? 100 : 82,
+          'ok',
+        ],
+        [
+          'Telefonnummern',
+          missingPhone ? `${missingPhone} Personen ohne Telefonnummer.` : 'Alle Telefonnummern vorhanden.',
+          missingPhone ? 75 : 100,
+          missingPhone ? 'warn' : 'ok',
+        ],
+        [
+          'Standortzuordnung',
+          missingLocation
+            ? `${missingLocation} Personen ohne Standort.`
+            : 'Alle Personen einem Standort zugeordnet.',
+          missingLocation ? 78 : 100,
+          missingLocation ? 'warn' : 'ok',
+        ],
+        [
+          'Zusatzfunktionen',
+          `${withoutFunction} Personen besitzen aktuell keine Zusatzfunktion.`,
+          withoutFunction ? 88 : 100,
+          withoutFunction ? 'warn' : 'ok',
+        ],
+        [
+          'Strukturintegrität',
+          orphans ? `${orphans} verwaiste Einträge gefunden.` : 'Keine verwaisten Organisationseinträge.',
+          orphans ? 45 : 100,
+          orphans ? 'error' : 'ok',
+        ],
+      ];
+    content.innerHTML =
+      viewHead(
+        'Datenqualitäts-Center',
+        'Automatische Plausibilitätsprüfungen auf den aktuellen Demo-Daten.',
+      ) +
+      `<div class="grid" style="margin-bottom:18px"><section class="panel"><div class="metric">${Math.round(checks.reduce((sum, check) => sum + check[2], 0) / checks.length)}%</div><div class="metric-label">Gesamtqualität</div></section><section class="panel"><div class="metric">${people.length}</div><div class="metric-label">geprüfte Personen</div></section><section class="panel"><div class="metric">${checks.filter((check) => check[3] !== 'ok').length}</div><div class="metric-label">Hinweise</div></section></div><div class="quality-list">${checks.map((check) => `<article class="quality-item"><div><strong>${check[0]}</strong><p>${check[1]}</p></div><span class="quality-score ${check[3] === 'warn' ? 'warn' : check[3] === 'error' ? 'error' : ''}">${check[2]}%</span></article>`).join('')}</div>`;
+  }
+  initLogin();
+})();
