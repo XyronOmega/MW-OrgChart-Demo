@@ -1,7 +1,7 @@
 # Bestand aller Eingabewege
 
-Stand: Branch `refactor/page-based-edit-masks`, ausgehend von `main` (`5e458b8`,
-nach dem Merge von PR #11 „app.js als lesbaren Quelltext führen“).
+Stand: Branch `refactor/edit-masks-people-orgunits`, ausgehend von `main`
+(`292ad17`, nach dem Merge von Paket 1 und der lesbaren `app.js`).
 
 Erfasst wurden alle Stellen, an denen Daten erzeugt oder verändert werden. Als
 Eingabeweg zählt jede Interaktion, die den `localStorage` beschreibt, sowie jede
@@ -13,12 +13,16 @@ seit PR #11 liegt `app.js` als lesbarer Quelltext vor und wird unmittelbar gepr�
 
 **Zusammenfassung**
 
-| Kategorie | Anzahl | davon in Paket 1 umgestellt |
-|---|---|---|
-| Systemdialoge (`alert`, `prompt`, `confirm`) | 13 | 1 |
-| Modale beziehungsweise schwebende Formulare | 1 | 0 |
-| Inline-Bearbeitung ohne eigenen Seitenzustand | 15 | 3 |
-| **Gesamt** | **29** | **4** |
+| Kategorie | Anfangs | Paket 1 | Paket 2 | noch offen |
+|---|---|---|---|---|
+| Systemdialoge (`alert`, `prompt`, `confirm`) | 13 | 1 | 2 | **10** |
+| Modale beziehungsweise schwebende Formulare | 1 | 0 | 1 | **0** |
+| Inline-Bearbeitung ohne eigenen Seitenzustand | 15 | 3 | 3 | **9** |
+| **Gesamt** | **29** | **4** | **6** | **19** |
+
+Paket 2 hat außerdem drei Altmechanismen ersatzlos entfernt, die in keiner der
+drei Kategorien geführt wurden: `window.location.reload()`, zwei
+`setInterval`-Poll-Schleifen und die simulierte erneute Anmeldung.
 
 Nicht eingebunden und deshalb nicht Teil des Bestands: `mobile-ui-core.js`,
 `mobile-ui-runtime.js`, `organization-type-colors.js`. Sie liegen im
@@ -28,7 +32,16 @@ Repository, werden von `index.html` aber nicht geladen.
 
 ## A. Modale und schwebende Formulare
 
-### A-01 Organisationseinheit anlegen und bearbeiten
+### A-01 ~~Organisationseinheit anlegen und bearbeiten~~ — in Paket 2 umgestellt
+
+> **Erledigt.** `organization-unit-editor.js` und `organization-unit-editor.css`
+> wurden ersatzlos entfernt. An ihre Stelle tritt `openUnitMask()` im
+> Anwendungskern: ein Seitenzustand in `#content` mit den Bereichen
+> *Einordnung*, *Stammdaten*, *Kontakt* und *Auswirkungen*. Der Neuladevorgang,
+> die beiden Poll-Schleifen und die simulierte Anmeldung sind entfallen.
+> Sämtliche Felder des früheren Modals sind erhalten geblieben.
+
+Ursprünglicher Befund:
 
 | | |
 |---|---|
@@ -56,12 +69,12 @@ Repository, werden von `index.html` aber nicht geladen.
 | **B-05** | Leitungsfunktion entfernen | Bereichsredaktion und höher | „Entfernen“ auf der Mandatskarte | `leadership-overlay.js:384` | `window.confirm` | `mw-demo-leadership-assignments` | – | Abbruch bricht ab | **hoch** – die Auswirkungen auf Stellvertretung und Personalunion werden nicht genannt | Bestätigungsbereich in der Maske „Leitungsfunktion“ mit Auswirkungen. **Paket 3** |
 | **B-06** | ~~Unterkategorie löschen~~ | Bereichsredaktion und höher | „Löschen“ in der Zeile | `person-groups.js:476` | `window.confirm` | `mw-demo-person-groups-v1`, `mw-demo-nodes` | – | Abbruch bricht ab | hoch – betroffene Personen wurden nicht genannt | **In Paket 1 umgestellt** → sichtbarer Bestätigungsbereich |
 | **B-07** | Demo zurücksetzen | alle | „Demo zurücksetzen“ | `app.js` (`resetBtn`) | `confirm` | alle Schlüssel | – | Abbruch bricht ab | **sehr hoch** – löscht den gesamten lokalen Stand | Bestätigungsbereich in einer Maske „Demo zurücksetzen“ mit Auflistung der betroffenen Bereiche. **Paket 5** |
-| **B-08** | Unzulässige Verschiebung im Organigramm | Bereichsredaktion und höher | Drag-and-drop einer Karte | `app.js` (`wireNodes`) | `alert` | – | Zyklen und Personen als Ziel werden abgelehnt | – | gering | Meldung als Hinweisstreifen im Organigramm. **Paket 2** |
+| **B-08** | ~~Unzulässige Verschiebung im Organigramm~~ **(Paket 2: sichtbarer Hinweis in der Seite)** | Bereichsredaktion und höher | Drag-and-drop einer Karte | `app.js` (`wireNodes`) | `alert` | – | Zyklen und Personen als Ziel werden abgelehnt | – | gering | Meldung als Hinweisstreifen im Organigramm. **Paket 2** |
 | **B-09** | Standort anlegen (Name) | Administrator und höher | „Standort hinzufügen“ | `app.js` (`renderLocations`) | `prompt` | `mw-demo-locations` | nur „nicht leer“ | Abbruch verwirft alles | **hoch** – zwei aufeinanderfolgende Dialoge, der Abbruch des zweiten legt trotzdem an | Maske „Standort“ mit Name, Adresse, Status. **Paket 5** |
 | **B-10** | Standort anlegen (Adresse) | Administrator und höher | derselbe Ablauf | `app.js` (`renderLocations`) | `prompt` | `mw-demo-locations` | keine – Abbruch ergibt „Keine Adresse“ | – | **hoch** | wie B-09 |
 | **B-11** | Zusatzfunktion anlegen (Name) | Administrator und höher | „Funktion hinzufügen“ | `app.js` (`renderFunctions`) | `prompt` | `mw-demo-functions` | nur „nicht leer“ | Abbruch verwirft | hoch | Maske „Zusatzfunktion“ mit Name, Kategorie (Auswahlliste), Symbol. **Paket 5** |
 | **B-12** | Zusatzfunktion anlegen (Kategorie) | Administrator und höher | derselbe Ablauf | `app.js` (`renderFunctions`) | `prompt` mit Vorgabe `project` | `mw-demo-functions` | **keine** – jede Eingabe wird übernommen, auch unbekannte Kategorien | – | **hoch** – erzeugt ungültige Kategorien | wie B-11, dort als Auswahlliste |
-| **B-13** | Organisationseinheit umbenennen | Bereichsredaktion und höher | „Umbenennen“ in der Tabelle | `app.js` (`renderUnits`) | `prompt` | `mw-demo-nodes` | **keine** – auch Dubletten werden übernommen | Abbruch bricht ab | mittel | entfällt zugunsten der Maske aus A-01. **Paket 2** |
+| **B-13** | ~~Organisationseinheit umbenennen~~ **(Paket 2: über die Maske)** | Bereichsredaktion und höher | „Umbenennen“ in der Tabelle | `app.js` (`renderUnits`) | `prompt` | `mw-demo-nodes` | **keine** – auch Dubletten werden übernommen | Abbruch bricht ab | mittel | entfällt zugunsten der Maske aus A-01. **Paket 2** |
 
 ---
 
@@ -73,9 +86,9 @@ zwischen Lesen und Bearbeiten und keine Warnung bei ungespeicherten Änderungen.
 
 | Kennung | Funktion | Rolle | Auslöser | Datei | Mechanismus | Daten | Validierung | Abbruch | Datenverlust | Zielmaske |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **C-01** | Person anlegen und bearbeiten | Bereichsredaktion und höher | „Person anlegen“, „Bearbeiten“ | `app.js` (`personBuilderHtml`, `wirePersonBuilder`) | Baukasten wird über der Tabelle eingeblendet (`personDraft`); die Liste bleibt darunter sichtbar | `mw-demo-nodes` | Pflichtfelder Name, Aufgabe, OrgEinheit; Meldung gesammelt | kein Abbrechen – nur ein Ansichtswechsel, der den Entwurf verwirft | **hoch** | Maske „Person“ mit *Stammdaten*, *Organisatorische Zuordnung*, *Kontakt*, *Zusatzfunktionen*. **Paket 2** |
-| **C-02** | Organisationseinheit anlegen (einfach) | Bereichsredaktion und höher | „Organisationseinheit anlegen“ (Grundvariante) | `app.js` (`unitBuilderHtml`, `wireUnitBuilder`) | Baukasten über der Tabelle (`unitDraft`) | `mw-demo-nodes` | Typ, übergeordnete Einheit, Name | kein Abbrechen | hoch | entfällt zugunsten der Maske aus A-01. **Paket 2** |
-| **C-03** | Eigenes Profil bearbeiten | alle | Ansicht „Mein Profil“ | `app.js` (`renderProfile`) | Formular unmittelbar in der Ansicht, Schaltfläche „Profil lokal speichern“ | `mw-demo-profile` | keine | keines | mittel – ein Ansichtswechsel verwirft ohne Hinweis | Maske „Mein Profil“ mit Lese- und Bearbeitungsmodus. **Paket 2** |
+| **C-01** | ~~Person anlegen und bearbeiten~~ **(Paket 2: Maske „Person“)** | Bereichsredaktion und höher | „Person anlegen“, „Bearbeiten“ | `app.js` (`personBuilderHtml`, `wirePersonBuilder`) | Baukasten wird über der Tabelle eingeblendet (`personDraft`); die Liste bleibt darunter sichtbar | `mw-demo-nodes` | Pflichtfelder Name, Aufgabe, OrgEinheit; Meldung gesammelt | kein Abbrechen – nur ein Ansichtswechsel, der den Entwurf verwirft | **hoch** | Maske „Person“ mit *Stammdaten*, *Organisatorische Zuordnung*, *Kontakt*, *Zusatzfunktionen*. **Paket 2** |
+| **C-02** | ~~Organisationseinheit anlegen (einfach)~~ **(Paket 2: entfallen zugunsten der Maske aus A-01)** | Bereichsredaktion und höher | „Organisationseinheit anlegen“ (Grundvariante) | `app.js` (`unitBuilderHtml`, `wireUnitBuilder`) | Baukasten über der Tabelle (`unitDraft`) | `mw-demo-nodes` | Typ, übergeordnete Einheit, Name | kein Abbrechen | hoch | entfällt zugunsten der Maske aus A-01. **Paket 2** |
+| **C-03** | ~~Eigenes Profil bearbeiten~~ **(Paket 2: Maske „Mein Profil“)** | alle | Ansicht „Mein Profil“ | `app.js` (`renderProfile`) | Formular unmittelbar in der Ansicht, Schaltfläche „Profil lokal speichern“ | `mw-demo-profile` | keine | keines | mittel – ein Ansichtswechsel verwirft ohne Hinweis | Maske „Mein Profil“ mit Lese- und Bearbeitungsmodus. **Paket 2** |
 | **C-04** | Leitungsfunktion anlegen und bearbeiten | Bereichsredaktion und höher | „Neue Leitungsfunktion“, „Bearbeiten“ | `leadership-overlay.js:311` (`renderForm`) | Formular am Seitenende derselben Ansicht; „Bearbeiten“ füllt es und lässt die Liste stehen | `mw-demo-leadership-assignments` | Pflichtfelder, Zeitraumprüfung, Prüfung auf Doppelmandat; Meldung gesammelt in einer Zeile | „Abbrechen“ nur beim Bearbeiten, kein Hinweis auf Änderungen | **hoch** – der Wechsel der Person im Auswahlfeld setzt das Formular zurück | Maske „Leitungsfunktion“ mit *Person und OrgEinheit*, *Ausübungsart*, *Gültigkeit*, *Hinweis*. **Paket 3** |
 | **C-05** | Perspektive „Person“ wechseln | alle | Auswahlfeld | `leadership-overlay.js` | Auswahlfeld mit sofortigem Neuaufbau | – (nur Anzeige) | – | – | keines | bleibt als Filter erhalten |
 | **C-06** | Perspektive „OrgEinheit“ wechseln | alle | Auswahlfeld | `leadership-overlay.js` | wie C-05 | – | – | – | keines | bleibt als Filter erhalten |
@@ -139,3 +152,23 @@ offene Stelle steht dort namentlich. Der Test schlägt fehl, wenn
 
 Mit jedem Paket schrumpfen die Listen. Sind sie leer, erzwingt der Test den
 Zustand dauerhaft.
+
+---
+
+## Was Paket 2 zusätzlich beseitigt hat
+
+Diese Mechanismen standen in keiner der drei Kategorien, waren aber die
+eigentliche Ursache für das Risiko eines Datenverlusts bei A-01:
+
+| Mechanismus | Fundstelle | Ersatz |
+|---|---|---|
+| `window.location.reload()` nach dem Speichern | `organization-unit-editor.js` | `renderUnits()` baut nur die betroffene Ansicht neu auf |
+| `setInterval` (50 ms, bis zu 80 Versuche) zur Wiederherstellung der Anmeldung | `organization-unit-editor.js` | entfällt – die Rolle bleibt erhalten |
+| `setInterval` (50 ms, bis zu 80 Versuche) zur Wiederherstellung der Ansicht | `organization-unit-editor.js` | entfällt – die Navigation bleibt erhalten |
+| Simulierte erneute Anmeldung über `loginButton.click()` | `organization-unit-editor.js` | entfällt |
+| Nachträgliche DOM-Manipulation der Tabelle (`enhanceUnitsView`) | `organization-unit-editor.js` | `renderUnits()` erzeugt die Schaltflächen selbst |
+| `alert('Diese Verschiebung ist nicht möglich.')` | `app.js` (`wireNodes`) | `showViewNotice()` – Hinweis mit `role="status"` in der Seite |
+
+`test/legacy-input-paths.test.js` und `test/app-source.test.js` halten diesen
+Zustand fest: Der Lauf schlägt fehl, sobald `location.reload`, `setInterval`
+oder ein programmgesteuerter Klick auf die Anmeldung zurückkehrt.

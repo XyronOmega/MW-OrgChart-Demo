@@ -60,9 +60,12 @@ describe('Geltungsbereich bleibt gekapselt', () => {
     assert.match(source.trimEnd(), /\}\)\(\);?$/, 'Die umschließende Funktion wird nicht aufgerufen.')
   })
 
-  test('es gibt genau eine beabsichtigte globale Schnittstelle', () => {
+  test('es gibt nur die beabsichtigten globalen Schnittstellen', () => {
+    // closeDrawer wird vom onclick der Schliessen-Schaltflaeche im
+    // Personenprofil benoetigt. MWAppValidation stellt die reinen fachlichen
+    // Pruefungen der Masken fuer die Einheitentests bereit.
     const globale = [...code.matchAll(/\bwindow\.([A-Za-z0-9_$]+)\s*=(?!=)/g)].map((match) => match[1])
-    assert.deepEqual([...new Set(globale)].sort(), ['closeDrawer'],
+    assert.deepEqual([...new Set(globale)].sort(), ['MWAppValidation', 'closeDrawer'],
       'Die globalen Schnittstellen von app.js haben sich verändert.')
   })
 
@@ -76,22 +79,71 @@ describe('Der Anwendungskern ist vollständig', () => {
   const erwarteteFunktionen = [
     'initLogin', 'updateRoleInfo', 'renderShell', 'renderView', 'renderChart', 'renderNode',
     'wireNodes', 'applySearch', 'openDrawer', 'closeDrawer', 'badgeHtml', 'functionMeta',
-    'renderProfile', 'renderPeople', 'personBuilderHtml', 'wirePersonBuilder',
-    'renderUnits', 'unitBuilderHtml', 'wireUnitBuilder', 'unitOptions', 'unitParentOptions',
+    'renderProfile', 'renderPeople', 'renderUnits', 'unitOptions',
     'unitPath', 'isDescendant', 'renderLocations', 'renderFunctions', 'renderStyles',
     'renderAdmin', 'renderQuality',
+    // Seit dem Maskenpaket 2: Erfassung und Bearbeitung laufen ueber MWEditMask.
+    'openPersonMask', 'openUnitMask', 'openProfileMask',
+    'validatePersonValues', 'validateUnitValues', 'unitImpact',
+    'savePersonValues', 'saveUnitValues', 'showViewNotice', 'renderViewNotice', 'descendantIds',
   ]
 
-  test('alle bisherigen Funktionen sind vorhanden', () => {
+  test('alle erwarteten Funktionen sind vorhanden', () => {
     const fehlend = erwarteteFunktionen.filter((name) => !new RegExp(`function\\s+${name}\\s*\\(`).test(code))
     assert.deepEqual(fehlend, [], 'Fehlende Funktionen: ' + fehlend.join(', '))
   })
 
-  test('die Datenschlüssel des LocalStorage sind unverändert', () => {
-    const schluessel = [...code.matchAll(/'(mw-demo-[a-z-]+)'/g)].map((match) => match[1])
-    assert.deepEqual([...new Set(schluessel)].sort(), [
+  test('die abgeloesten Inline-Baukaesten sind verschwunden', () => {
+    // Personen und Organisationseinheiten werden ausschliesslich ueber die
+    // Maske erfasst; die frueheren Baukaesten in der Liste sind entfallen.
+    const abgeloest = ['personBuilderHtml', 'wirePersonBuilder', 'unitBuilderHtml', 'wireUnitBuilder']
+    const verblieben = abgeloest.filter((name) => new RegExp(`function\\s+${name}\\s*\\(`).test(code))
+    assert.deepEqual(verblieben, [], 'Wieder vorhandene Inline-Baukaesten: ' + verblieben.join(', '))
+    assert.ok(!/\bpersonDraft\b/.test(code), 'personDraft ist zurueckgekehrt.')
+    assert.ok(!/\bunitDraft\b/.test(code), 'unitDraft ist zurueckgekehrt.')
+  })
+
+  test('Erfassung laeuft ueber die gemeinsame Maske', () => {
+    assert.ok(code.includes('window.MWEditMask.open('), 'app.js oeffnet keine Bearbeitungsmaske.')
+    assert.ok(!/document\.body\.(append|appendChild)/.test(code), 'app.js haengt wieder etwas an document.body.')
+    assert.ok(!/aria-modal/.test(code), 'app.js erzeugt wieder ein modales Element.')
+  })
+
+  test('kein Reload, kein Polling, keine simulierte Anmeldung', () => {
+    assert.ok(!/location\s*\.\s*reload\s*\(/.test(code), 'app.js laedt die Seite wieder neu.')
+    assert.ok(!/setInterval\s*\(/.test(code), 'app.js verwendet wieder eine Poll-Schleife.')
+    assert.ok(!/loginBtn\s*\.\s*click\s*\(/.test(code), 'app.js klickt wieder programmgesteuert auf die Anmeldung.')
+  })
+
+  test('app.js schreibt weiterhin genau dieselben Schlüssel', () => {
+    // Die LocalStorage-Struktur bleibt unveraendert. Neue Felder an Personen
+    // und Einheiten kommen additiv in `mw-demo-nodes` hinzu.
+    const geschrieben = [...code.matchAll(/localStorage\.setItem\(\s*'([^']+)'/g)].map((match) => match[1])
+    assert.deepEqual([...new Set(geschrieben)].sort(), [
       'mw-demo-functions', 'mw-demo-locations', 'mw-demo-nodes', 'mw-demo-profile',
-    ], 'Die Speicherschlüssel von app.js haben sich verändert.')
+    ], 'Die geschriebenen Speicherschlüssel von app.js haben sich verändert.')
+  })
+
+  test('zusätzlich gelesene Schlüssel sind benannt', () => {
+    // Die Masken lesen Organisationstypen, Unterkategorien und Leitungen, um
+    // gültige Auswahllisten und die Auswirkungen anzuzeigen. Geschrieben wird
+    // dort nichts.
+    // Nur echte Speicherzugriffe zaehlen; `mw-demo-nodes-changed` ist der Name
+    // des Aenderungsereignisses, kein Schluessel.
+    const schluessel = [
+      ...[...code.matchAll(/(?:load|readJson)\(\s*'([^']+)'/g)].map((match) => match[1]),
+      ...[...code.matchAll(/localStorage\.setItem\(\s*'([^']+)'/g)].map((match) => match[1]),
+      ...[...code.matchAll(/_KEY = '([^']+)'/g)].map((match) => match[1]),
+    ]
+    assert.deepEqual([...new Set(schluessel)].sort(), [
+      'mw-demo-functions',
+      'mw-demo-leadership-assignments',
+      'mw-demo-locations',
+      'mw-demo-nodes',
+      'mw-demo-organization-types',
+      'mw-demo-person-groups-v1',
+      'mw-demo-profile',
+    ], 'Die von app.js verwendeten Speicherschlüssel haben sich verändert.')
   })
 
   test('die Ansichten der Navigation sind unverändert', () => {
