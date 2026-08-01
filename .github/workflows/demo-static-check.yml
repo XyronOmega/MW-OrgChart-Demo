@@ -28,8 +28,27 @@ jobs:
       - name: Check JavaScript syntax
         run: npm run check
 
+      # Prettier wird vor den Tests bereitgestellt: Die Pruefung zur
+      # Reproduzierbarkeit der Formatierung laeuft auch als Teil von `npm test`
+      # und wuerde sich ohne das Paket stillschweigend ueberspringen.
+      #
+      # Achtung bei der Reihenfolge: Das Projekt fuehrt keine Abhaengigkeiten,
+      # deshalb entfernt jedes weitere `npm install --no-save` das zuvor
+      # installierte Paket wieder. Jeder Schritt installiert daher selbst, was
+      # er braucht, unmittelbar davor.
+      - name: Install Prettier
+        run: npm install --no-save prettier@3
+
+      # Uebersprungene Tests sind keine bestandenen Tests.
       - name: Run tests
-        run: npm test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee unit.log
+          if grep -qE 'skipped [1-9][0-9]*$' unit.log; then
+            echo "Einheitentests wurden uebersprungen – benoetigte Werkzeuge fehlen."
+            exit 1
+          fi
+          rm -f unit.log
 
       # `npx playwright install` lädt nur die Browser herunter. Ohne das Paket
       # selbst im Arbeitsverzeichnis scheitert `import('playwright')` in den
