@@ -1,7 +1,7 @@
 # Bestand aller Eingabewege
 
-Stand: Branch `refactor/edit-masks-people-orgunits`, ausgehend von `main`
-(`292ad17`, nach dem Merge von Paket 1 und der lesbaren `app.js`).
+Stand: Branch `refactor/edit-masks-leadership-person-groups`, ausgehend von
+`main` (`111db8e`, nach dem Merge von Paket 2).
 
 Erfasst wurden alle Stellen, an denen Daten erzeugt oder verändert werden. Als
 Eingabeweg zählt jede Interaktion, die den `localStorage` beschreibt, sowie jede
@@ -13,16 +13,18 @@ seit PR #11 liegt `app.js` als lesbarer Quelltext vor und wird unmittelbar gepr�
 
 **Zusammenfassung**
 
-| Kategorie | Anfangs | Paket 1 | Paket 2 | noch offen |
-|---|---|---|---|---|
-| Systemdialoge (`alert`, `prompt`, `confirm`) | 13 | 1 | 2 | **10** |
-| Modale beziehungsweise schwebende Formulare | 1 | 0 | 1 | **0** |
-| Inline-Bearbeitung ohne eigenen Seitenzustand | 15 | 3 | 3 | **9** |
-| **Gesamt** | **29** | **4** | **6** | **19** |
+| Kategorie | Anfangs | Paket 1 | Paket 2 | Paket 3 | noch offen |
+|---|---|---|---|---|---|
+| Systemdialoge (`alert`, `prompt`, `confirm`) | 13 | 1 | 2 | 1 | **9** |
+| Modale beziehungsweise schwebende Formulare | 1 | 0 | 1 | 0 | **0** |
+| Inline-Bearbeitung ohne eigenen Seitenzustand | 15 | 3 | 3 | 2 | **7** |
+| **Gesamt** | **29** | **4** | **6** | **3** | **16** |
 
 Paket 2 hat außerdem drei Altmechanismen ersatzlos entfernt, die in keiner der
 drei Kategorien geführt wurden: `window.location.reload()`, zwei
-`setInterval`-Poll-Schleifen und die simulierte erneute Anmeldung.
+`setInterval`-Poll-Schleifen und die simulierte erneute Anmeldung. Paket 3 hat
+die Sofortspeicherung bei `change` beseitigt – ebenfalls keine der drei
+Kategorien, aber dieselbe Ursache für stille Datenänderungen.
 
 Nicht eingebunden und deshalb nicht Teil des Bestands: `mobile-ui-core.js`,
 `mobile-ui-runtime.js`, `organization-type-colors.js`. Sie liegen im
@@ -66,7 +68,7 @@ Ursprünglicher Befund:
 | **B-02** | Gespeicherte Ansicht löschen | alle | „Löschen“ | `orgchart-navigation.js:667` | `window.confirm` | `mw-demo-org-views` | – | Abbruch bricht ab | gering | Bestätigungsbereich in derselben Maske. **Paket 5** |
 | **B-03** | Änderungspaket anlegen | Bereichsredaktion und höher | „Neues Änderungspaket“ | `changeset-demo.js:290` | `prompt` | `mw-demo-changesets`, `mw-demo-changeset-events` | nur „nicht leer“ | Abbruch verwirft | mittel – nur der Titel geht verloren | Maske „Änderungspaket“ mit Titel, Beschreibung, geplantem Gültigkeitsdatum. **Paket 4** |
 | **B-04** | Fehlende Begründung bei Ablehnung | Administrator und höher | „Ablehnen“ | `changeset-demo.js:342` | `alert` | – | Begründung ist Pflicht | – | gering | Meldung am Feld „Kommentar“ in der Freigabemaske. **Paket 4** |
-| **B-05** | Leitungsfunktion entfernen | Bereichsredaktion und höher | „Entfernen“ auf der Mandatskarte | `leadership-overlay.js:384` | `window.confirm` | `mw-demo-leadership-assignments` | – | Abbruch bricht ab | **hoch** – die Auswirkungen auf Stellvertretung und Personalunion werden nicht genannt | Bestätigungsbereich in der Maske „Leitungsfunktion“ mit Auswirkungen. **Paket 3** |
+| **B-05** | ~~Leitungsfunktion entfernen~~ **(Paket 3: sichtbarer Bestätigungsbereich)** | Bereichsredaktion und höher | „Entfernen“ auf der Mandatskarte | `leadership-overlay.js:384` | `window.confirm` | `mw-demo-leadership-assignments` | – | Abbruch bricht ab | **hoch** – die Auswirkungen auf Stellvertretung und Personalunion werden nicht genannt | **In Paket 3 umgestellt** → Bestätigungsbereich in der Maske „Leitungsfunktion“ mit neun Auswirkungszeilen |
 | **B-06** | ~~Unterkategorie löschen~~ | Bereichsredaktion und höher | „Löschen“ in der Zeile | `person-groups.js:476` | `window.confirm` | `mw-demo-person-groups-v1`, `mw-demo-nodes` | – | Abbruch bricht ab | hoch – betroffene Personen wurden nicht genannt | **In Paket 1 umgestellt** → sichtbarer Bestätigungsbereich |
 | **B-07** | Demo zurücksetzen | alle | „Demo zurücksetzen“ | `app.js` (`resetBtn`) | `confirm` | alle Schlüssel | – | Abbruch bricht ab | **sehr hoch** – löscht den gesamten lokalen Stand | Bestätigungsbereich in einer Maske „Demo zurücksetzen“ mit Auflistung der betroffenen Bereiche. **Paket 5** |
 | **B-08** | ~~Unzulässige Verschiebung im Organigramm~~ **(Paket 2: sichtbarer Hinweis in der Seite)** | Bereichsredaktion und höher | Drag-and-drop einer Karte | `app.js` (`wireNodes`) | `alert` | – | Zyklen und Personen als Ziel werden abgelehnt | – | gering | Meldung als Hinweisstreifen im Organigramm. **Paket 2** |
@@ -89,12 +91,12 @@ zwischen Lesen und Bearbeiten und keine Warnung bei ungespeicherten Änderungen.
 | **C-01** | ~~Person anlegen und bearbeiten~~ **(Paket 2: Maske „Person“)** | Bereichsredaktion und höher | „Person anlegen“, „Bearbeiten“ | `app.js` (`personBuilderHtml`, `wirePersonBuilder`) | Baukasten wird über der Tabelle eingeblendet (`personDraft`); die Liste bleibt darunter sichtbar | `mw-demo-nodes` | Pflichtfelder Name, Aufgabe, OrgEinheit; Meldung gesammelt | kein Abbrechen – nur ein Ansichtswechsel, der den Entwurf verwirft | **hoch** | Maske „Person“ mit *Stammdaten*, *Organisatorische Zuordnung*, *Kontakt*, *Zusatzfunktionen*. **Paket 2** |
 | **C-02** | ~~Organisationseinheit anlegen (einfach)~~ **(Paket 2: entfallen zugunsten der Maske aus A-01)** | Bereichsredaktion und höher | „Organisationseinheit anlegen“ (Grundvariante) | `app.js` (`unitBuilderHtml`, `wireUnitBuilder`) | Baukasten über der Tabelle (`unitDraft`) | `mw-demo-nodes` | Typ, übergeordnete Einheit, Name | kein Abbrechen | hoch | entfällt zugunsten der Maske aus A-01. **Paket 2** |
 | **C-03** | ~~Eigenes Profil bearbeiten~~ **(Paket 2: Maske „Mein Profil“)** | alle | Ansicht „Mein Profil“ | `app.js` (`renderProfile`) | Formular unmittelbar in der Ansicht, Schaltfläche „Profil lokal speichern“ | `mw-demo-profile` | keine | keines | mittel – ein Ansichtswechsel verwirft ohne Hinweis | Maske „Mein Profil“ mit Lese- und Bearbeitungsmodus. **Paket 2** |
-| **C-04** | Leitungsfunktion anlegen und bearbeiten | Bereichsredaktion und höher | „Neue Leitungsfunktion“, „Bearbeiten“ | `leadership-overlay.js:311` (`renderForm`) | Formular am Seitenende derselben Ansicht; „Bearbeiten“ füllt es und lässt die Liste stehen | `mw-demo-leadership-assignments` | Pflichtfelder, Zeitraumprüfung, Prüfung auf Doppelmandat; Meldung gesammelt in einer Zeile | „Abbrechen“ nur beim Bearbeiten, kein Hinweis auf Änderungen | **hoch** – der Wechsel der Person im Auswahlfeld setzt das Formular zurück | Maske „Leitungsfunktion“ mit *Person und OrgEinheit*, *Ausübungsart*, *Gültigkeit*, *Hinweis*. **Paket 3** |
+| **C-04** | ~~Leitungsfunktion anlegen und bearbeiten~~ **(Paket 3: Maske „Leitungsfunktion“)** | Bereichsredaktion und höher | „Neue Leitungsfunktion“, „Bearbeiten“ | `leadership-overlay.js:311` (`renderForm`) | Formular am Seitenende derselben Ansicht; „Bearbeiten“ füllt es und lässt die Liste stehen | `mw-demo-leadership-assignments` | Pflichtfelder, Zeitraumprüfung, Prüfung auf Doppelmandat; Meldung gesammelt in einer Zeile | „Abbrechen“ nur beim Bearbeiten, kein Hinweis auf Änderungen | **hoch** – der Wechsel der Person im Auswahlfeld setzt das Formular zurück | **In Paket 3 umgestellt** → Maske mit *Person und Organisation*, *Ausübungsart*, *Gültigkeit*, *Ergänzende Angaben* |
 | **C-05** | Perspektive „Person“ wechseln | alle | Auswahlfeld | `leadership-overlay.js` | Auswahlfeld mit sofortigem Neuaufbau | – (nur Anzeige) | – | – | keines | bleibt als Filter erhalten |
 | **C-06** | Perspektive „OrgEinheit“ wechseln | alle | Auswahlfeld | `leadership-overlay.js` | wie C-05 | – | – | – | keines | bleibt als Filter erhalten |
 | **C-07** | ~~Unterkategorie umbenennen~~ | Bereichsredaktion und höher | Eingabefeld in der Zeile | `person-groups.js` | Eingabefeld direkt in der Liste, `change` schreibt sofort | `mw-demo-person-groups-v1` | **keine** | keines – ein Klick daneben speichert | hoch | **In Paket 1 umgestellt** → Maske mit Prüfung |
 | **C-08** | ~~Unterkategorie anlegen~~ | Bereichsredaktion und höher | Formular am Seitenende | `person-groups.js` | Formular unterhalb der Liste | `mw-demo-person-groups-v1` | Pflichtfeld und Dublette, Meldung am Formular | keines | mittel | **In Paket 1 umgestellt** → Maske |
-| **C-09** | Person einer Unterkategorie zuordnen | Bereichsredaktion und höher | Auswahlfeld je Person | `person-groups.js` | Auswahlfeld in der Liste, `change` schreibt sofort | `mw-demo-nodes` | keine | keines | mittel – keine Rückmeldung, kein Rückgängig | Maske „Personen zuordnen“ mit Sammelspeicherung. **Paket 3** |
+| **C-09** | ~~Person einer Unterkategorie zuordnen~~ **(Paket 3: Sammelmaske)** | Bereichsredaktion und höher | Auswahlfeld je Person | `person-groups.js` | Auswahlfeld in der Liste, `change` schreibt sofort | `mw-demo-nodes` | keine | keines | mittel – keine Rückmeldung, kein Rückgängig | **In Paket 3 umgestellt** → Maske „Personen Unterkategorien zuordnen“ mit mitlaufender Zusammenfassung und gesammelter Speicherung |
 | **C-10** | Reihenfolge per Pfeiltasten | Bereichsredaktion und höher | „↑“ und „↓“ | `person-groups.js` | Direktaktion, schreibt sofort | `mw-demo-person-groups-v1` | – | keines | gering | bleibt Direktaktion; keine Maske erforderlich |
 | **C-11** | Reihenfolge per Drag-and-drop | Bereichsredaktion und höher | Ziehen einer Zeile | `person-groups.js` | Direktaktion, schreibt sofort | `mw-demo-person-groups-v1` | – | keines | gering | bleibt Direktaktion |
 | **C-12** | Organisationstyp bearbeiten | Superadministrator | Felder je Typkarte | `platform-admin.js:225` | Eingabefelder direkt auf der Karte, sofortiges Speichern | `mw-demo-organization-types` | keine | keines | mittel | Maske „Organisationstyp“. **Paket 5** |
@@ -131,9 +133,20 @@ window.MWEditMask.open({
   validate: (values) => ({ name: 'Meldung oder null' }),
   onSave: (values) => true,          // oder { error, field }
   onCancel: zurueck,
+  summary: (values) => ({ title, lines: [], empty }),   // mitlaufend, für Sammelmasken
   danger: { title, description, label, question, impact: [], note, confirmLabel, onConfirm },
+  dangerOpen: false,                 // Bestätigungsbereich sofort einblenden
 })
 ```
+
+Paket 3 hat den Rahmen um zwei Eigenschaften ergänzt:
+
+* `summary` – eine mitlaufende Zusammenfassung vor dem Speichern. Sie wird bei
+  jeder Eingabe nachgeführt und zeigt, was ein Klick auf „Speichern“ bewirken
+  würde. Sammelmasken brauchen das; Einzelmasken lassen die Eigenschaft weg.
+* `dangerOpen` – blendet den Bestätigungsbereich unmittelbar ein, wenn der
+  Einstieg ausdrücklich auf das Entfernen zielt. Der Fokus liegt dabei auf der
+  sicheren Vorbelegung „Abbrechen“.
 
 Wichtig: Die Maske schreibt selbst nichts. `onSave` und `onConfirm` rufen die
 Speicherfunktionen des jeweiligen Moduls auf, die bereits die Rechteprüfung
@@ -172,3 +185,42 @@ eigentliche Ursache für das Risiko eines Datenverlusts bei A-01:
 `test/legacy-input-paths.test.js` und `test/app-source.test.js` halten diesen
 Zustand fest: Der Lauf schlägt fehl, sobald `location.reload`, `setInterval`
 oder ein programmgesteuerter Klick auf die Anmeldung zurückkehrt.
+
+---
+
+## Was Paket 3 zusätzlich beseitigt hat
+
+| Mechanismus | Fundstelle | Ersatz |
+|---|---|---|
+| Formular am Seitenende der Leitungsansicht (`renderForm`) | `leadership-overlay.js` | `openLeadershipMask()` – eigener Seitenzustand in `#content` |
+| `window.confirm` beim Entfernen eines Leitungsmandats | `leadership-overlay.js` | sichtbarer Bestätigungsbereich mit neun Auswirkungszeilen |
+| Auswahlfeld je Person mit sofortiger Speicherung bei `change` | `person-groups.js` (`assignPerson`) | `openAssignmentMask()` – gesammelte Erfassung, ein Speichervorgang |
+| Gesammelte Fehlermeldung in einer Zeile am Formularende | `leadership-overlay.js` | Meldung unmittelbar am betroffenen Feld |
+| Stille Ersetzung einer unbekannten Ausübungsart durch `REGULAR` | `leadership-overlay.js` (`normalizeAssignment`) | Prüfung gegen die Rohwerte; unbekannte Kennungen werden abgelehnt |
+
+Zusätzlich wurde eine Bedienschwäche der gemeinsamen Maske behoben, die alle
+Masken betraf: Die Zeile für die Feldmeldung stand nur bei einer vorhandenen
+Meldung im Layout. Erschien die Meldung erst beim Verlassen des Feldes,
+verschob sich alles darunter – auch die Schaltfläche „Speichern“. Ein Klick
+unmittelbar nach der Eingabe kam dadurch nicht zustande. Die Zeile bleibt jetzt
+dauerhaft im Layout und wird nur visuell ausgeblendet.
+
+---
+
+## Bewusst erhaltene Direktaktionen
+
+Diese Bedienhandlungen bleiben ohne Maske, weil sie keine Formularerfassung
+sind, sondern unmittelbare Bedienung:
+
+| Kennung | Funktion | Datei |
+|---|---|---|
+| C-05 | Perspektivfilter „Person“ | `leadership-overlay.js` |
+| C-06 | Perspektivfilter „OrgEinheit“ | `leadership-overlay.js` |
+| C-10 | Reihenfolge der Unterkategorien per Pfeiltasten | `person-groups.js` |
+| C-11 | Reihenfolge der Unterkategorien per Drag-and-drop | `person-groups.js` |
+| C-18 | Kartenstil wählen | `app.js` |
+| – | Organigramm-Navigation, Suche und Filter | `orgchart-navigation.js` |
+
+Auch die Auswahl der OrgEinheit in der Ansicht „Unterkategorien“ bleibt ein
+Perspektivfilter. Die Sammelmaske übernimmt die dort gewählte OrgEinheit und
+weist sie im ersten Bereich aus; ein Wechsel erfolgt in der Liste.

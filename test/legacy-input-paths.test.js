@@ -38,7 +38,9 @@ const shippedScripts = () => {
 const REMAINING_SYSTEM_DIALOGS = {
   'orgchart-navigation.js': 2, // Ansicht speichern (prompt), Ansicht löschen (confirm)
   'changeset-demo.js': 2, // Paket anlegen (prompt), fehlende Begründung (alert)
-  'leadership-overlay.js': 1, // Leitungsfunktion entfernen (confirm)
+  // In Paket 3 entfallen: „Leitungsfunktion entfernen“ (confirm). Deshalb
+  // steht leadership-overlay.js nicht mehr im Bestand, sondern unten in der
+  // Liste der umgestellten Dateien.
   // app.js: Demo zurücksetzen (confirm), Standort + Adresse (prompt),
   // Funktion + Kategorie (prompt).
   // In Paket 2 entfallen: unzulässige Verschiebung (alert) und
@@ -75,8 +77,9 @@ describe('Systemdialoge in Erfassung und Bearbeitung', () => {
   })
 
   test('bereits umgestellte Dateien bleiben frei von Systemdialogen', () => {
-    // person-groups.js wurde im Referenzfall von Paket 1 umgestellt.
-    const umgestellt = ['person-groups.js', 'edit-mask.js', 'roles.js', 'accessibility.js', 'ui-lifecycle.js', 'navigation-shell.js']
+    // person-groups.js wurde im Referenzfall von Paket 1 umgestellt,
+    // leadership-overlay.js in Paket 3.
+    const umgestellt = ['person-groups.js', 'leadership-overlay.js', 'edit-mask.js', 'roles.js', 'accessibility.js', 'ui-lifecycle.js', 'navigation-shell.js']
     umgestellt.forEach((name) => {
       assert.equal(countDialogs(read(name)), 0, `${name} verwendet wieder einen Systemdialog.`)
     })
@@ -187,5 +190,38 @@ describe('Abgelöste Altmechanismen', () => {
     assert.ok(source.includes('openUnitMask'), 'Die Maske für Organisationseinheiten fehlt.')
     assert.ok(source.includes('openProfileMask'), 'Die Profilmaske fehlt.')
     assert.ok(!/data-rename=/.test(source), 'Das Umbenennen per Systemdialog ist zurückgekehrt.')
+  })
+
+  test('Leitungsfunktionen laufen über die Maske', () => {
+    const source = withoutComments(read('leadership-overlay.js'))
+    assert.ok(source.includes('openLeadershipMask'), 'Die Maske für Leitungsfunktionen fehlt.')
+    assert.ok(source.includes('window.MWEditMask.open('), 'Die gemeinsame Maske wird nicht verwendet.')
+    assert.ok(!/data-leadership-form/.test(source),
+      'Das Formular am Seitenende ist zurückgekehrt.')
+    assert.ok(!/new FormData\(/.test(source),
+      'Die Erfassung läuft wieder über ein eigenes Formular statt über die Maske.')
+    assert.ok(source.includes('confirmLabel'), 'Es fehlt der sichtbare Bestätigungsbereich für das Entfernen.')
+  })
+
+  test('Personen werden gesammelt zugeordnet, nicht bei jedem change', () => {
+    const source = withoutComments(read('person-groups.js'))
+    assert.ok(source.includes('openAssignmentMask'), 'Die Sammelmaske für Personenzuordnungen fehlt.')
+    assert.ok(source.includes('savePersonAssignments'), 'Die gesammelte Speicherfunktion fehlt.')
+    assert.ok(!/data-person-subcategory-person/.test(source),
+      'Das Auswahlfeld je Person mit sofortiger Speicherung ist zurückgekehrt.')
+    assert.ok(!/const assignPerson\b/.test(source),
+      'Die Einzelspeicherung je Person ist zurückgekehrt.')
+  })
+
+  test('die Schreibfunktionen prüfen ihr Recht an erster Stelle', () => {
+    const stellen = [
+      ['leadership-overlay.js', /saveAssignmentValues\s*=\s*\([^)]*\)\s*=>\s*\{\s*\n?\s*if\s*\(!canEdit\(\)/],
+      ['leadership-overlay.js', /removeAssignmentById\s*=\s*\([^)]*\)\s*=>\s*\{\s*\n?\s*if\s*\(!canEdit\(\)/],
+      ['person-groups.js', /savePersonAssignments\s*=\s*\([^)]*\)\s*=>\s*\{\s*\n?\s*if\s*\(!canEdit\(\)/],
+    ]
+    stellen.forEach(([name, muster]) => {
+      assert.match(withoutComments(read(name)), muster,
+        `${name}: Die Rechteprüfung steht nicht an erster Stelle.`)
+    })
   })
 })
