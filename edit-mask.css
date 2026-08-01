@@ -1,0 +1,380 @@
+/**
+ * Darstellung der gemeinsamen Bearbeitungsmaske.
+ *
+ * Die Maske ist ein fester Seitenzustand im Hauptinhaltsbereich – kein
+ * schwebendes Fenster. Sie übernimmt Farben, Schriften und Abstände der
+ * bestehenden Oberfläche; auf schmalen Geräten wird durchgehend einspaltig
+ * dargestellt.
+ */
+
+.mw-mask {
+  display: grid;
+  gap: 18px;
+  max-width: 960px;
+}
+
+/* --- Brotkrumennavigation ------------------------------------------------ */
+
+.mw-mask-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mw-mask-breadcrumb li + li::before {
+  content: '›';
+  margin-right: 6px;
+  color: var(--muted, #686679);
+}
+
+.mw-mask-breadcrumb li {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.mw-mask-breadcrumb-step {
+  min-height: 44px;
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--dark, #070042);
+  font-size: 13px;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mw-mask-breadcrumb [aria-current='page'] {
+  color: var(--muted, #686679);
+  font-weight: 750;
+}
+
+/* --- Kopfbereich --------------------------------------------------------- */
+
+.mw-mask-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line, #d9d8e2);
+}
+
+.mw-mask-head h2 {
+  margin: 0 0 6px;
+  color: var(--dark, #070042);
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.mw-mask-head h2:focus-visible {
+  outline: 3px solid rgba(77, 69, 214, .35);
+  outline-offset: 4px;
+}
+
+.mw-mask-head p {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--muted, #686679);
+  line-height: 1.5;
+}
+
+/* Der Modus ist jederzeit ablesbar: Lesen oder Bearbeiten. */
+.mw-mask-mode {
+  margin: 0;
+  padding: 7px 12px;
+  border: 1px solid var(--dark, #070042);
+  background: var(--dark, #070042);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mw-mask[data-mw-mask-mode='read'] .mw-mask-mode {
+  border-color: #c9c8d3;
+  background: #f2f2f6;
+  color: var(--muted, #686679);
+}
+
+/* --- Formularbereiche ---------------------------------------------------- */
+
+.mw-mask-form {
+  display: grid;
+  gap: 18px;
+}
+
+.mw-mask-required-hint {
+  margin: 0;
+  color: var(--muted, #686679);
+  font-size: 13px;
+}
+
+.mw-mask-required-hint b,
+.mw-mask-label b {
+  color: #8f171c;
+}
+
+.mw-mask-section {
+  margin: 0;
+  border: 1px solid var(--line, #d9d8e2);
+  padding: 18px;
+  background: #fff;
+}
+
+.mw-mask-section > legend {
+  padding: 0 8px;
+  color: var(--dark, #070042);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.mw-mask-section-description {
+  margin: 0 0 14px;
+  color: var(--muted, #686679);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.mw-mask-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.mw-mask-field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.mw-mask-field--wide {
+  grid-column: 1 / -1;
+}
+
+.mw-mask-field--checkbox > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mw-mask-field--checkbox input {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+}
+
+.mw-mask-label {
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.mw-mask-hint {
+  color: var(--muted, #686679);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.mw-mask-readonly-value {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #ecebf1;
+  background: #f7f7fa;
+  color: var(--ink, #201f30);
+}
+
+/* --- Fehlermeldungen ----------------------------------------------------- */
+
+.mw-mask-field.is-invalid input,
+.mw-mask-field.is-invalid select,
+.mw-mask-field.is-invalid textarea {
+  border-color: #8f171c;
+  box-shadow: 0 0 0 3px rgba(143, 23, 28, .12);
+}
+
+.mw-mask-error {
+  margin: 0;
+  color: #8f171c;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.mw-mask-summary {
+  border-left: 7px solid #8f171c;
+  padding: 14px 16px;
+  background: #fff1f1;
+}
+
+.mw-mask-summary strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #8f171c;
+}
+
+.mw-mask-summary ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.mw-mask-summary button {
+  min-height: 44px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #8f171c;
+  font-size: 14px;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mw-mask-notice {
+  margin: 0;
+  border-left: 7px solid var(--blue, #99e7ff);
+  padding: 12px 16px;
+  background: #f2fbfd;
+  color: var(--muted, #686679);
+}
+
+/* --- Aktionsleiste ------------------------------------------------------- */
+
+.mw-mask-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.mw-mask-dirty {
+  color: #72530b;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+/* --- Sichtbare Rückfrage beim Verlassen ---------------------------------- */
+
+.mw-mask-leave {
+  border: 2px solid #72530b;
+  padding: 16px 18px;
+  background: #fff8e8;
+}
+
+.mw-mask-leave h3 {
+  margin: 0 0 6px;
+  color: #5c430a;
+}
+
+.mw-mask-leave h3:focus-visible {
+  outline: 3px solid rgba(77, 69, 214, .35);
+  outline-offset: 3px;
+}
+
+.mw-mask-leave p {
+  margin: 0 0 14px;
+  color: #5c430a;
+  line-height: 1.5;
+}
+
+.mw-mask-leave-actions,
+.mw-mask-danger-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* --- Sichtbarer Bestätigungsbereich statt Systemdialog ------------------- */
+
+.mw-mask-danger {
+  border: 1px solid #e2b7ba;
+  padding: 18px;
+  background: #fff8f8;
+}
+
+.mw-mask-danger h3 {
+  margin: 0 0 6px;
+  color: #7e151b;
+}
+
+.mw-mask-danger h3:focus-visible {
+  outline: 3px solid rgba(77, 69, 214, .35);
+  outline-offset: 3px;
+}
+
+.mw-mask-danger p {
+  margin: 0 0 14px;
+  color: var(--muted, #686679);
+  line-height: 1.5;
+}
+
+.mw-mask-danger.is-open {
+  border-width: 2px;
+  border-color: #8f171c;
+}
+
+.mw-mask-danger-impact {
+  margin-bottom: 14px;
+  border-left: 6px solid #8f171c;
+  padding: 10px 14px;
+  background: #fff;
+}
+
+.mw-mask-danger-impact strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #7e151b;
+  font-size: 13px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.mw-mask-danger-impact ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink, #201f30);
+  line-height: 1.5;
+}
+
+.mw-mask-danger-note {
+  font-size: 13px;
+}
+
+/* Die endgültige Aktion ist deutlich gekennzeichnet, Abbrechen bleibt die
+   sichere Vorbelegung und steht zuerst. */
+.mw-mask-danger-confirm {
+  border-color: #8f171c;
+  background: #8f171c;
+  color: #fff;
+  font-weight: 800;
+}
+
+/* --- Schmale Darstellung -------------------------------------------------- */
+
+@media (max-width: 780px) {
+  .mw-mask-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mw-mask-head {
+    flex-direction: column;
+  }
+
+  .mw-mask-actions .btn,
+  .mw-mask-leave-actions .btn,
+  .mw-mask-danger-actions .btn {
+    flex: 1 1 220px;
+  }
+
+  .mw-mask-dirty {
+    flex-basis: 100%;
+  }
+}

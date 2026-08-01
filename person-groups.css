@@ -68,3 +68,7 @@
 .mw-person-group-row.is-readonly{grid-template-columns:24px 1fr}
 .mw-person-assignment-readonly{display:grid;gap:4px}
 .mw-person-assignment-readonly span{color:#686679;font-size:13px}
+
+/* Einstieg in die Bearbeitungsmaske statt eines Formulars am Seitenende. */
+.mw-person-group-add-bar{display:grid;gap:8px;justify-items:start;padding-top:4px}
+.mw-person-group-add-bar small{color:#686679;line-height:1.4}
