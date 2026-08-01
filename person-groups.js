@@ -177,6 +177,34 @@
     return person?.parent ? String(person.parent) : null
   }
 
+  /**
+   * Prüft die Bezeichnung einer Unterkategorie. Bisher lag diese Prüfung nur in
+   * `createCategory`; beim Umbenennen fand überhaupt keine Prüfung statt. Die
+   * Bearbeitungsmaske verwendet sie für die Rückmeldung während der Eingabe.
+   *
+   * @returns {string|null} Meldung oder null, wenn die Angabe gültig ist.
+   */
+  const validateCategoryName = (groups, orgUnitId, name, ownId = null) => {
+    const clean = String(name || '').trim()
+    if (!clean) return 'Bitte eine Bezeichnung für die Unterkategorie angeben.'
+    if (clean.length > 60) return 'Die Bezeichnung darf höchstens 60 Zeichen lang sein.'
+    const duplicate = groups.map(normalizeGroup).some((group) => String(group.orgUnitId) === String(orgUnitId)
+      && !isDirectGroup(group)
+      && String(group.id) !== String(ownId ?? '')
+      && normalizeText(group.name) === normalizeText(clean))
+    if (duplicate) return 'In dieser OrgEinheit besteht bereits eine Unterkategorie mit dieser Bezeichnung.'
+    return null
+  }
+
+  /** Personen, die einer Unterkategorie zugeordnet sind – für die Auswirkungen beim Löschen. */
+  const peopleInCategory = (nodes, groups, categoryId) => {
+    const category = groups.map(normalizeGroup).find((group) => String(group.id) === String(categoryId))
+    if (!category || isDirectGroup(category)) return []
+    return nodes.filter((node) => node?.type === 'person'
+      && String(node.parent || '') === String(category.orgUnitId)
+      && String(node.subcategoryId || '') === String(categoryId))
+  }
+
   const publicApi = {
     fallbackNodes: clone(fallbackNodes),
     normalizeText,
@@ -191,6 +219,8 @@
     groupPeopleForUnit,
     removeCategoryAndReassign,
     resolvePersonTarget,
+    validateCategoryName,
+    peopleInCategory,
     directId,
     isDirectGroup,
   }
@@ -319,11 +349,21 @@
     return true
   }
 
+  /**
+   * Benennt eine Unterkategorie um. Wie `createCategory` wird eine Meldung
+   * zurückgegeben; zuvor wurde ohne jede Prüfung geschrieben.
+   *
+   * @returns {string|null} Meldung oder null bei Erfolg.
+   */
   const renameCategory = (categoryId, name) => {
-    const clean = String(name || '').trim()
-    if (!clean) return
-    const groups = loadGroups().map((group) => group.id === categoryId && !isDirectGroup(group) ? { ...group, name: clean } : group)
-    saveGroups(groups)
+    const groups = loadGroups()
+    const category = groups.map(normalizeGroup).find((group) => String(group.id) === String(categoryId))
+    if (!category || isDirectGroup(category)) return 'Der Systembereich „Direkt zugeordnet“ kann nicht umbenannt werden.'
+    const error = validateCategoryName(groups, category.orgUnitId, name, categoryId)
+    if (error) return error
+    const clean = String(name).trim()
+    saveGroups(groups.map((group) => (String(group.id) === String(categoryId) ? { ...group, name: clean } : group)))
+    return null
   }
 
   const moveGroup = (orgUnitId, groupId, direction) => {
@@ -365,14 +405,12 @@
         <div class="mw-person-group-row-main">
           ${isDirectGroup(group)
             ? `<strong>Direkt zugeordnet</strong><small>Personen ohne Unterkategorie</small>`
-            : editable
-              ? `<label><span>Unterkategorie</span><input value="${escapeHtml(group.name)}" data-person-group-name="${escapeHtml(group.id)}"></label>`
-              : `<strong data-person-group-name-text="${escapeHtml(group.id)}">${escapeHtml(group.name)}</strong><small>Unterkategorie · Position ${index + 1} von ${groups.length}</small>`}
+            : `<strong data-person-group-name-text="${escapeHtml(group.id)}">${escapeHtml(group.name)}</strong><small>Unterkategorie · Position ${index + 1} von ${groups.length}</small>`}
         </div>
         ${editable ? `<div class="mw-person-group-row-actions">
+          ${isDirectGroup(group) ? '' : `<button type="button" class="btn btn-ghost btn-small" data-person-group-edit="${escapeHtml(group.id)}">Bearbeiten</button>`}
           <button type="button" class="btn btn-ghost btn-small" data-person-group-up="${escapeHtml(group.id)}" ${index === 0 ? 'disabled' : ''} aria-label="Nach oben">↑</button>
           <button type="button" class="btn btn-ghost btn-small" data-person-group-down="${escapeHtml(group.id)}" ${index === groups.length - 1 ? 'disabled' : ''} aria-label="Nach unten">↓</button>
-          ${isDirectGroup(group) ? '' : `<button type="button" class="btn btn-danger btn-small" data-person-group-delete="${escapeHtml(group.id)}">Löschen</button>`}
         </div>` : ''}
       </article>`).join('')
   }
@@ -401,8 +439,105 @@
     }).join('')
   }
 
+  /** Ist gerade eine Bearbeitungsmaske im Hauptbereich sichtbar? */
+  const maskIsOpen = () => Boolean(window.MWEditMask?.isOpen())
+
+  /**
+   * Bearbeitungsmaske für eine Unterkategorie – Referenzfall der neuen
+   * Maskenarchitektur.
+   *
+   * Anlegen, Umbenennen und Löschen laufen nicht mehr über ein Eingabefeld in
+   * der Liste, ein Formular am Seitenende und `window.confirm`, sondern über
+   * einen eigenen Seitenzustand im Hauptbereich mit Titel, Brotkrumen,
+   * ausgewiesenem Bearbeitungsmodus, Prüfung während der Eingabe, Aktionsleiste
+   * und sichtbarem Bestätigungsbereich für das Löschen.
+   */
+  const openCategoryMask = (orgUnitId, categoryId) => {
+    if (!canEdit() || !window.MWEditMask) return false
+    const groups = loadGroups()
+    const category = categoryId
+      ? groups.map(normalizeGroup).find((group) => String(group.id) === String(categoryId))
+      : null
+    if (categoryId && (!category || isDirectGroup(category))) return false
+
+    const backToList = () => { renderGroupsCenter(); enhanceChart() }
+    const unit = unitName(orgUnitId)
+    const affected = category ? peopleInCategory(loadNodes(), groups, category.id) : []
+
+    window.MWEditMask.open({
+      id: 'person-group',
+      eyebrow: 'Organisation · Unterkategorien',
+      title: category ? `Unterkategorie „${category.name}“ bearbeiten` : 'Neue Unterkategorie anlegen',
+      description: category
+        ? `Bezeichnung der Unterkategorie in der OrgEinheit „${unit}“. Unterkategorien sind keine OrgEinheiten und besitzen keine eigene Leitung.`
+        : `Neue Unterkategorie in der OrgEinheit „${unit}“. Unterkategorien gliedern nur die Darstellung der Mitarbeitenden; sie erzeugen weder eine OrgEinheit noch eine Leitungsfunktion.`,
+      breadcrumb: [
+        { label: 'Organisation' },
+        { label: 'Unterkategorien', onSelect: backToList },
+        { label: category ? category.name : 'Neue Unterkategorie' },
+      ],
+      sections: [
+        {
+          title: 'Bezeichnung',
+          description: 'Die Bezeichnung erscheint als Zwischenüberschrift auf der Organigramm-Karte der OrgEinheit.',
+          fields: [
+            {
+              name: 'name',
+              label: 'Bezeichnung der Unterkategorie',
+              type: 'text',
+              required: true,
+              maxLength: 60,
+              placeholder: 'z. B. Recruiting',
+              hint: 'Innerhalb einer OrgEinheit muss die Bezeichnung eindeutig sein. Höchstens 60 Zeichen.',
+              wide: true,
+            },
+          ],
+        },
+      ],
+      values: { name: category?.name || '' },
+      validate: (values) => ({ name: validateCategoryName(loadGroups(), orgUnitId, values.name, category?.id || null) }),
+      saveLabel: category ? 'Änderungen speichern' : 'Unterkategorie anlegen',
+      onSave: (values) => {
+        const error = category
+          ? renameCategory(category.id, values.name)
+          : createCategory(orgUnitId, values.name)
+        if (error) return { error, field: 'name' }
+        backToList()
+        return true
+      },
+      onCancel: backToList,
+      danger: category
+        ? {
+          title: 'Unterkategorie löschen',
+          description: 'Das Löschen entfernt nur die Gliederung. Personen bleiben der OrgEinheit zugeordnet.',
+          label: 'Unterkategorie löschen',
+          question: `Unterkategorie „${category.name}“ endgültig löschen?`,
+          impact: [
+            `OrgEinheit: ${unit}`,
+            affected.length
+              ? `${affected.length} ${affected.length === 1 ? 'Person wechselt' : 'Personen wechseln'} zu „Direkt zugeordnet“: ${affected.map((person) => person.name).join(', ')}`
+              : 'Dieser Unterkategorie ist derzeit keine Person zugeordnet.',
+            'Untereinheiten sind nicht betroffen: Unterkategorien besitzen keine untergeordneten OrgEinheiten.',
+            'Leitungsfunktionen sind nicht betroffen: Unterkategorien besitzen keine eigene Leitung.',
+          ],
+          note: 'Die Änderung bleibt lokal in diesem Browser.',
+          confirmLabel: 'Endgültig löschen',
+          onConfirm: () => {
+            const result = removeCategoryAndReassign(loadGroups(), loadNodes(), category.id)
+            if (saveGroups(result.groups)) saveNodes(result.nodes)
+            window.MWEditMask.close()
+            backToList()
+          },
+        }
+        : null,
+    })
+    return true
+  }
+
   const renderGroupsCenter = () => {
     currentGroupsView = true
+    // Die Liste ersetzt eine eventuell offene Maske; deren Zustand wird verworfen.
+    window.MWEditMask?.close()
     const content = document.getElementById('content')
     const nav = document.getElementById('nav')
     if (!content || !nav) return
@@ -426,7 +561,9 @@
               ? 'Die Reihenfolge kann per Drag-and-drop oder mit den Pfeiltasten verändert werden. „Direkt zugeordnet“ ist ein Systembereich und kann ebenfalls frei positioniert werden.'
               : 'Die festgelegte Reihenfolge wird hier in der Anzeigefolge dargestellt. „Direkt zugeordnet“ ist ein Systembereich.'}</p>
             <div class="mw-person-group-list" data-person-group-list>${renderGroupRows(orgUnitId)}</div>
-            ${canEdit() ? `<form class="mw-person-group-add" data-person-group-add><label class="field"><span>Neue Unterkategorie</span><input name="name" placeholder="z. B. Recruiting" autocomplete="off"></label><button type="submit" class="btn btn-primary">Hinzufügen</button><p data-person-group-message></p></form>` : `<p class="mw-person-groups-readonly">Die Rolle „${escapeHtml(roleLabel())}“ darf die Struktur ansehen, aber nicht bearbeiten. Es werden deshalb keine Eingabefelder angeboten.</p>`}
+            ${canEdit()
+              ? '<div class="mw-person-group-add-bar"><button type="button" class="btn btn-primary" data-person-group-create>Unterkategorie anlegen</button><small>Anlegen und Bearbeiten erfolgen in einer eigenen Maske im Hauptbereich.</small></div>'
+              : `<p class="mw-person-groups-readonly">Die Rolle „${escapeHtml(roleLabel())}“ darf die Struktur ansehen, aber nicht bearbeiten. Es werden deshalb keine Eingabefelder angeboten.</p>`}
           </section>
           <section class="mw-person-groups-panel">
             <div class="mw-person-groups-panel-head"><div><span>Personenzuordnung</span><h3>Mitarbeitende</h3></div><strong>${peopleForUnit(orgUnitId).length} Personen</strong></div>
@@ -441,25 +578,11 @@
       renderGroupsCenter()
     })
 
-    content.querySelector('[data-person-group-add]')?.addEventListener('submit', (event) => {
-      event.preventDefault()
-      const form = event.currentTarget
-      const message = form.querySelector('[data-person-group-message]')
-      const error = createCategory(orgUnitId, new FormData(form).get('name'))
-      if (error) {
-        message.textContent = error
-        message.classList.add('is-error')
-        return
-      }
-      renderGroupsCenter()
-      enhanceChart()
-    })
-
-    content.querySelectorAll('[data-person-group-name]').forEach((input) => input.addEventListener('change', () => {
-      renameCategory(input.dataset.personGroupName, input.value)
-      renderGroupsCenter()
-      enhanceChart()
+    content.querySelector('[data-person-group-create]')?.addEventListener('click', () => openCategoryMask(orgUnitId, null))
+    content.querySelectorAll('[data-person-group-edit]').forEach((button) => button.addEventListener('click', () => {
+      openCategoryMask(orgUnitId, button.dataset.personGroupEdit)
     }))
+
     content.querySelectorAll('[data-person-group-up]').forEach((button) => button.addEventListener('click', () => {
       moveGroup(orgUnitId, button.dataset.personGroupUp, -1)
       renderGroupsCenter()
@@ -467,16 +590,6 @@
     }))
     content.querySelectorAll('[data-person-group-down]').forEach((button) => button.addEventListener('click', () => {
       moveGroup(orgUnitId, button.dataset.personGroupDown, 1)
-      renderGroupsCenter()
-      enhanceChart()
-    }))
-    content.querySelectorAll('[data-person-group-delete]').forEach((button) => button.addEventListener('click', () => {
-      const groups = loadGroups()
-      const category = groups.find((group) => group.id === button.dataset.personGroupDelete)
-      if (!category || !window.confirm(`Unterkategorie „${category.name}“ löschen? Zugeordnete Personen wechseln zu „Direkt zugeordnet“.`)) return
-      const result = removeCategoryAndReassign(groups, loadNodes(), category.id)
-      saveGroups(result.groups)
-      saveNodes(result.nodes)
       renderGroupsCenter()
       enhanceChart()
     }))
@@ -656,7 +769,7 @@
     ensureNavigation()
     const tree = document.querySelector('.tree')
     if (!tree) {
-      if (currentGroupsView && !document.querySelector('[data-person-groups-page]')) renderGroupsCenter()
+      if (currentGroupsView && !maskIsOpen() && !document.querySelector('[data-person-groups-page]')) renderGroupsCenter()
       return
     }
     const nodes = loadNodes()
@@ -668,7 +781,7 @@
     bindCompactPeople()
     patchSearchTargets()
     if (highlightedPersonId) highlightCompactPerson(highlightedPersonId)
-    if (currentGroupsView && !document.querySelector('[data-person-groups-page]')) renderGroupsCenter()
+    if (currentGroupsView && !maskIsOpen() && !document.querySelector('[data-person-groups-page]')) renderGroupsCenter()
   }
 
   const scheduleEnhance = () => {

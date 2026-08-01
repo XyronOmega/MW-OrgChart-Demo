@@ -63,8 +63,6 @@ jobs:
           grep -F 'orgchart-navigation.css?v=1' index.html
           grep -F 'orgchart-navigation-bootstrap.js?v=2' index.html
           grep -F 'orgchart-navigation.js?v=2' index.html
-          grep -F 'person-groups.css?v=2' index.html
-          grep -F 'person-groups.js?v=3' index.html
           grep -F 'navigation-shell.css?v=1' index.html
           grep -F 'navigation-shell.js?v=2' index.html
           grep -F 'ui-lifecycle.js?v=1' index.html
@@ -74,6 +72,10 @@ jobs:
           grep -F 'roles.js?v=1' index.html
           grep -F 'accessibility.css?v=1' index.html
           grep -F 'accessibility.js?v=1' index.html
+          grep -F 'edit-mask.css?v=1' index.html
+          grep -F 'edit-mask.js?v=1' index.html
+          grep -F 'person-groups.css?v=3' index.html
+          grep -F 'person-groups.js?v=4' index.html
 
       # app.js wird als lesbarer Quelltext gefuehrt. Der Test faellt aus, sobald
       # Laufzeitdekodierung, eine zweite globale Schnittstelle oder eine
