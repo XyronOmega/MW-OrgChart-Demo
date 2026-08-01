@@ -141,11 +141,21 @@
     return `<div class="mw-mask-field${field.wide ? ' mw-mask-field--wide' : ''}${error ? ' is-invalid' : ''}"><label for="${id}">${label}</label>${control}${hint}${errorMarkup}</div>`
   }
 
+  /**
+   * Ein Bereich kann neben Feldern auch reine Hinweiszeilen führen (`notes`).
+   * Sie tragen keine Eingabe, sondern erläutern Auswirkungen einer Änderung –
+   * etwa betroffene Untereinheiten, Personen und Leitungszuordnungen.
+   */
   const sectionMarkup = (config, section, index) => `
     <fieldset class="mw-mask-section" data-mw-mask-section="${index}">
       <legend>${escapeHtml(section.title)}</legend>
       ${section.description ? `<p class="mw-mask-section-description">${escapeHtml(section.description)}</p>` : ''}
-      <div class="mw-mask-grid">${(section.fields || []).map((field) => fieldMarkup(config, field)).join('')}</div>
+      ${(section.notes || []).length
+        ? `<ul class="mw-mask-notes" data-mw-mask-notes="${index}">${section.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join('')}</ul>`
+        : ''}
+      ${(section.fields || []).length
+        ? `<div class="mw-mask-grid">${section.fields.map((field) => fieldMarkup(config, field)).join('')}</div>`
+        : ''}
     </fieldset>`
 
   const breadcrumbMarkup = (config) => {
