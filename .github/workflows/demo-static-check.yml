@@ -68,11 +68,30 @@ jobs:
           grep -F 'navigation-shell.css?v=1' index.html
           grep -F 'navigation-shell.js?v=2' index.html
           grep -F 'ui-lifecycle.js?v=1' index.html
+          grep -F 'app.js?v=readable-1' index.html
           grep -F 'leadership-overlay.css?v=3' index.html
           grep -F 'leadership-overlay.js?v=4' index.html
           grep -F 'roles.js?v=1' index.html
           grep -F 'accessibility.css?v=1' index.html
           grep -F 'accessibility.js?v=1' index.html
+
+      # app.js wird als lesbarer Quelltext gefuehrt. Der Test faellt aus, sobald
+      # Laufzeitdekodierung, eine zweite globale Schnittstelle oder eine
+      # fehlende Kernfunktion zurueckkehrt.
+      #
+      # Prettier wird eigens bereitgestellt: Ohne das Paket ueberspringt sich
+      # der Test zur Reproduzierbarkeit der Formatierung stillschweigend.
+      # Uebersprungene Tests sind keine bestandenen Tests.
+      - name: Verify readable application core
+        run: |
+          set -o pipefail
+          npm install --no-save prettier@3
+          node --test test/app-source.test.js 2>&1 | tee app-source.log
+          if grep -qE 'skipped [1-9][0-9]*$' app-source.log; then
+            echo "Tests wurden uebersprungen – benoetigte Werkzeuge fehlen."
+            exit 1
+          fi
+          rm -f app-source.log
 
       - name: Verify demo makes no backend calls
         run: |
