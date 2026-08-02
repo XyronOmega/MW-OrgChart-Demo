@@ -1,5 +1,10 @@
 # Priorisierte Maßnahmen und Roadmap
 
+> **Momentaufnahme vom 2026-07-31.** Mehrere Befunde sind seither behoben.
+> Der aktuelle Stand je Befund steht in [`STATUS.md`](STATUS.md); die Angaben
+> unten bleiben bewusst unverändert, weil sie den damaligen Messstand
+> dokumentieren.
+
 Aufwand in Personentagen, grob geschätzt. Risiko = Risiko der Änderung selbst.
 
 ---

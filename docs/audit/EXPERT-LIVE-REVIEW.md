@@ -1,5 +1,10 @@
 # Experten-Review MW OrgChart Demo
 
+> **Momentaufnahme vom 2026-07-31.** Mehrere Befunde sind seither behoben.
+> Der aktuelle Stand je Befund steht in [`STATUS.md`](STATUS.md); die Angaben
+> unten bleiben bewusst unverändert, weil sie den damaligen Messstand
+> dokumentieren.
+
 Unabhängige Analyse aus vier Perspektiven: technische Qualität, fachliche Eignung, Nutzerfreundlichkeit, Live-Betrieb.
 
 **Geprüfter Stand:** `main` = `9f830dc`, veröffentlichter Branch `gh-pages`, Korrekturbranch `fix/runtime-stability-audit` (PR #7).

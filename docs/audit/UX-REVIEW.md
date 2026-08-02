@@ -1,5 +1,10 @@
 # UX-Bewertung
 
+> **Momentaufnahme vom 2026-07-31.** Mehrere Befunde sind seither behoben.
+> Der aktuelle Stand je Befund steht in [`STATUS.md`](STATUS.md); die Angaben
+> unten bleiben bewusst unverändert, weil sie den damaligen Messstand
+> dokumentieren.
+
 Bewertet wurde der **korrigierte** Stand (PR #7). Der veröffentlichte Stand ist nicht bedienbar und daher nicht bewertbar.
 
 ---

@@ -1,5 +1,10 @@
 # Testprotokoll
 
+> **Momentaufnahme vom 2026-07-31.** Mehrere Befunde sind seither behoben.
+> Der aktuelle Stand je Befund steht in [`STATUS.md`](STATUS.md); die Angaben
+> unten bleiben bewusst unverändert, weil sie den damaligen Messstand
+> dokumentieren.
+
 **Datum:** 2026-07-31 · **Tester:** unabhängiger Fachberater
 **Werkzeug:** Chromium über Playwright, statischer Dateiserver
 **Prüfgegenstände:** `gh-pages` (veröffentlicht) und `fix/runtime-stability-audit` (PR #7)

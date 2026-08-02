@@ -1,5 +1,10 @@
 # Architekturbewertung
 
+> **Momentaufnahme vom 2026-07-31.** Mehrere Befunde sind seither behoben.
+> Der aktuelle Stand je Befund steht in [`STATUS.md`](STATUS.md); die Angaben
+> unten bleiben bewusst unverändert, weil sie den damaligen Messstand
+> dokumentieren.
+
 Stand `main` = `9f830dc`. Ergänzungen aus `fix/runtime-stability-audit` (PR #7) sind gekennzeichnet.
 
 ---

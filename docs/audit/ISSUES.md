@@ -1,5 +1,10 @@
 # Fehlerliste
 
+> **Momentaufnahme vom 2026-07-31.** Mehrere Befunde sind seither behoben.
+> Der aktuelle Stand je Befund steht in [`STATUS.md`](STATUS.md); die Angaben
+> unten bleiben bewusst unverändert, weil sie den damaligen Messstand
+> dokumentieren.
+
 Geprüft am 2026-07-31 gegen `main` = `9f830dc`, `gh-pages` und `fix/runtime-stability-audit` (PR #7).
 Alle Angaben sind gemessen, sofern nicht ausdrücklich als **möglicher Risikofall** gekennzeichnet.
 
