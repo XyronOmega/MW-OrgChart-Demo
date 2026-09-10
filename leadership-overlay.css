@@ -127,7 +127,6 @@
 }
 
 .leadership-page-heading > span,
-.leadership-form-heading > span,
 .leadership-context > span {
   color: var(--muted, #686679);
   font-size: 11px;
@@ -136,14 +135,12 @@
   text-transform: uppercase;
 }
 
-.leadership-page-heading h2,
-.leadership-form-heading h3 {
+.leadership-page-heading h2 {
   margin: 4px 0 6px;
   color: var(--dark, #070042);
 }
 
 .leadership-page-heading p,
-.leadership-form-heading p,
 .leadership-context p {
   margin: 0;
   color: var(--muted, #686679);
@@ -157,7 +154,6 @@
 }
 
 .leadership-perspective,
-.leadership-form,
 .leadership-readonly {
   border: 1px solid var(--line, #d9d8e2);
   padding: 18px;
@@ -238,8 +234,7 @@
   overflow-wrap: anywhere;
 }
 
-.leadership-card-actions,
-.leadership-form-actions {
+.leadership-card-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -249,45 +244,10 @@
   color: #8f171c;
 }
 
-.leadership-form {
-  display: grid;
-  gap: 18px;
-}
-
-.leadership-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 13px;
-}
-
-.leadership-wide {
-  grid-column: 1 / -1;
-}
-
-.leadership-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--dark, #070042);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.leadership-checkbox input {
-  width: 18px;
-  height: 18px;
-}
-
-.leadership-form-message,
 .leadership-empty,
 .leadership-readonly {
   margin: 0;
   color: var(--muted, #686679);
-}
-
-.leadership-form-message.is-error {
-  color: #8f171c;
-  font-weight: 750;
 }
 
 @media (max-width: 900px) {
@@ -297,13 +257,8 @@
 }
 
 @media (max-width: 620px) {
-  .leadership-form-grid,
   .leadership-assignment-card dl {
     grid-template-columns: 1fr;
-  }
-
-  .leadership-wide {
-    grid-column: auto;
   }
 }
 
@@ -316,4 +271,41 @@
   color: var(--muted, #686679);
   font-size: 14px;
   line-height: 1.45;
+}
+
+/* --- Einstieg in die Maske und sichtbarer Hinweis ------------------------- */
+
+/* Der frühere Bearbeitungsbereich am Seitenende ist entfallen. An seiner
+   Stelle steht nur noch der Einstieg in die feste Maske im Hauptbereich. */
+.leadership-add-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid var(--line, #d9d8e2);
+  padding: 16px 18px;
+  background: #fff;
+}
+
+.leadership-add-bar small {
+  color: var(--muted, #686679);
+  line-height: 1.5;
+}
+
+/* Rückmeldung nach dem Speichern oder Entfernen – innerhalb der Seite,
+   nicht als Systemdialog. Trägt role="status". */
+.leadership-notice {
+  margin: 0 0 4px;
+  border-left: 6px solid #1f7a4d;
+  padding: 12px 16px;
+  background: #eef8f2;
+  color: #14532d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.leadership-notice--error {
+  border-left-color: #8f171c;
+  background: #fdf1f1;
+  color: #7c1419;
 }

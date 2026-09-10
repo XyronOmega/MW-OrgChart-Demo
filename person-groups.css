@@ -72,3 +72,36 @@
 /* Einstieg in die Bearbeitungsmaske statt eines Formulars am Seitenende. */
 .mw-person-group-add-bar{display:grid;gap:8px;justify-items:start;padding-top:4px}
 .mw-person-group-add-bar small{color:#686679;line-height:1.4}
+
+/* Rückmeldung nach der Sammelzuordnung – innerhalb der Seite, nicht als
+   Systemdialog. Trägt role="status". */
+.mw-person-groups-notice {
+  margin: 0 0 14px;
+  border-left: 6px solid #1f7a4d;
+  padding: 12px 16px;
+  background: #eef8f2;
+  color: #14532d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mw-person-groups-notice--error {
+  border-left-color: #8f171c;
+  background: #fdf1f1;
+  color: #7c1419;
+}
+
+/* Die Zuordnung je Person ist reine Anzeige; geändert wird in der Sammelmaske. */
+.mw-person-assignment-readonly {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.mw-person-assignment-readonly span {
+  color: var(--muted, #686679);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}

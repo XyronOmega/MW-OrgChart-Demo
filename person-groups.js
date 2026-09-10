@@ -205,8 +205,96 @@
       && String(node.subcategoryId || '') === String(categoryId))
   }
 
+  // --- Sammelzuordnung von Personen zu Unterkategorien ---------------------
+
+  /**
+   * Feldnamen der Sammelmaske. Je Person genau ein Auswahlfeld; der Feldname
+   * trägt die Personenkennung, damit die Werte eindeutig zugeordnet bleiben.
+   */
+  const ASSIGNMENT_FIELD_PREFIX = 'person:'
+  const assignmentFieldName = (personId) => `${ASSIGNMENT_FIELD_PREFIX}${personId}`
+  const assignmentFieldPerson = (name) => (String(name).startsWith(ASSIGNMENT_FIELD_PREFIX)
+    ? String(name).slice(ASSIGNMENT_FIELD_PREFIX.length)
+    : null)
+
+  /** Die Person, die dieses Feld betrifft – oder null, wenn sie nicht zulässig ist. */
+  const assignablePerson = (nodes, orgUnitId, personId) => {
+    const person = nodes.find((node) => String(node?.id ?? '') === String(personId))
+    if (!person || person.type !== 'person') return null
+    if (String(person.parent || '') !== String(orgUnitId)) return null
+    return person
+  }
+
+  /**
+   * Prüft die Sammelzuordnung. Abgelehnt werden unbekannte Personen, Personen
+   * einer anderen OrgEinheit und Unterkategorien, die nicht zu dieser
+   * OrgEinheit gehören – auch dann, wenn sie von außen eingeschleust wurden.
+   *
+   * @returns {Object} Zuordnung Feldname → Meldung
+   */
+  const validatePersonAssignments = (nodes, groups, orgUnitId, values) => {
+    const errors = {}
+    const unitGroups = groupsForUnit(groups, orgUnitId)
+    const erlaubt = new Set(unitGroups.map((group) => String(group.id)))
+    Object.keys(values || {}).forEach((name) => {
+      const personId = assignmentFieldPerson(name)
+      if (personId === null) return
+      const person = nodes.find((node) => String(node?.id ?? '') === String(personId))
+      if (!person || person.type !== 'person') {
+        errors[name] = 'Diese Person ist nicht vorhanden.'
+        return
+      }
+      if (String(person.parent || '') !== String(orgUnitId)) {
+        errors[name] = 'Diese Person ist dieser OrgEinheit nicht direkt zugeordnet.'
+        return
+      }
+      if (!erlaubt.has(String(values[name] ?? ''))) {
+        errors[name] = 'Diese Unterkategorie gehört nicht zu dieser OrgEinheit.'
+      }
+    })
+    return errors
+  }
+
+  /**
+   * Die tatsächlichen Änderungen einer Sammelzuordnung. Unveränderte Personen
+   * zählen nicht als Änderung; „Direkt zugeordnet“ entspricht `subcategoryId:
+   * null`.
+   */
+  const personAssignmentChanges = (nodes, groups, orgUnitId, values) => {
+    const unitGroups = groupsForUnit(groups, orgUnitId)
+    const direct = unitGroups.find(isDirectGroup)
+    const directIdValue = String(direct?.id || '')
+    const label = (id) => unitGroups.find((group) => String(group.id) === String(id))?.name || 'Direkt zugeordnet'
+    const changes = []
+    Object.keys(values || {}).forEach((name) => {
+      const personId = assignmentFieldPerson(name)
+      if (personId === null) return
+      const person = assignablePerson(nodes, orgUnitId, personId)
+      if (!person) return
+      const bisherige = String(person.subcategoryId || '')
+      const vorher = unitGroups.some((group) => !isDirectGroup(group) && String(group.id) === bisherige)
+        ? bisherige
+        : directIdValue
+      const nachher = String(values[name] ?? '')
+      if (!nachher || nachher === vorher) return
+      changes.push({
+        personId: String(person.id),
+        personName: person.name,
+        fromId: vorher === directIdValue ? null : vorher,
+        fromName: label(vorher),
+        toId: nachher === directIdValue ? null : nachher,
+        toName: label(nachher),
+      })
+    })
+    return changes
+  }
+
   const publicApi = {
     fallbackNodes: clone(fallbackNodes),
+    assignmentFieldName,
+    assignmentFieldPerson,
+    validatePersonAssignments,
+    personAssignmentChanges,
     normalizeText,
     normalizeGroup,
     ensureDirectGroup,
@@ -336,17 +424,37 @@
     return null
   }
 
-  const assignPerson = (personId, subcategoryId) => {
-    if (!canEdit()) {
-      console.warn('[person-groups] Die aktive Rolle darf Personenzuordnungen nicht ändern.')
-      return false
-    }
+  /**
+   * Speichert die Sammelzuordnung von Personen zu Unterkategorien.
+   *
+   * Die frühere Einzelspeicherung bei jedem `change` ist entfallen. Geschrieben
+   * wird ausschließlich `subcategoryId`; `parent` – also die organisatorische
+   * Mitgliedschaft – und die Leitungsmandate bleiben unberührt.
+   *
+   * @returns {Object} `{ ok, changed }` oder `{ error, field }`
+   */
+  const savePersonAssignments = (orgUnitId, values) => {
+    if (!canEdit()) return { error: 'Die aktive Rolle darf Personenzuordnungen nicht ändern.' }
     const nodes = loadNodes()
-    const next = nodes.map((node) => String(node.id) === String(personId) && node.type === 'person'
-      ? { ...node, subcategoryId: subcategoryId && !String(subcategoryId).startsWith(DIRECT_PREFIX) ? String(subcategoryId) : null }
-      : node)
+    const unit = nodes.find((node) => String(node?.id ?? '') === String(orgUnitId))
+    if (!unit || unit.type === 'person') return { error: 'Die gewählte OrgEinheit ist nicht vorhanden.' }
+
+    const groups = loadGroups()
+    const errors = validatePersonAssignments(nodes, groups, orgUnitId, values)
+    const field = Object.keys(errors)[0]
+    if (field) return { error: errors[field], field }
+
+    const changes = personAssignmentChanges(nodes, groups, orgUnitId, values)
+    if (!changes.length) {
+      return { error: 'Es wurde keine Zuordnung geändert. Ohne Änderung wird nichts gespeichert.' }
+    }
+
+    const ziele = new Map(changes.map((change) => [change.personId, change.toId]))
+    const next = nodes.map((node) => (ziele.has(String(node.id))
+      ? { ...node, subcategoryId: ziele.get(String(node.id)) }
+      : node))
     saveNodes(next)
-    return true
+    return { ok: true, changed: changes.length, changes }
   }
 
   /**
@@ -415,26 +523,28 @@
       </article>`).join('')
   }
 
+  /**
+   * Zeigt die aktuelle Zuordnung je Person – ohne Eingabefeld.
+   *
+   * Die früheren Auswahlfelder je Zeile haben bei jedem `change` sofort
+   * geschrieben, ohne Rückmeldung und ohne Rückgängig. Geändert wird jetzt
+   * ausschließlich in der Sammelmaske; die Liste bleibt reine Anzeige.
+   */
   const renderPeopleAssignments = (orgUnitId) => {
     const people = peopleForUnit(orgUnitId)
     const groups = groupsForUnit(loadGroups(), orgUnitId)
     const assignments = loadAssignments()
     const leaderIds = activeLeaderIdsForUnit(assignments, orgUnitId)
     if (!people.length) return '<p class="mw-person-groups-empty">Dieser OrgEinheit sind derzeit keine Personen direkt zugeordnet.</p>'
-    const editable = canEdit()
     return people.map((person) => {
       const category = groups.find((group) => group.id === person.subcategoryId && !isDirectGroup(group))
       const selected = category?.id || directId(orgUnitId)
       const selectedName = groups.find((group) => group.id === selected)?.name || 'Direkt zugeordnet'
       const leader = leaderIds.has(String(person.id))
       return `
-        <article class="mw-person-assignment-row${editable ? '' : ' is-readonly'}">
+        <article class="mw-person-assignment-row is-readonly">
           <div><strong>${escapeHtml(person.name)}</strong><span>${escapeHtml(person.role || 'Mitarbeitende Person')}</span>${leader ? '<em>Leitungsfunktion – wird nicht in der Mitarbeitendenliste angezeigt</em>' : ''}</div>
-          ${editable
-            ? `<label><span>Interne Zuordnung</span><select data-person-subcategory-person="${escapeHtml(person.id)}">
-            ${groups.map((group) => `<option value="${escapeHtml(group.id)}" ${group.id === selected ? 'selected' : ''}>${escapeHtml(group.name)}</option>`).join('')}
-          </select></label>`
-            : `<div class="mw-person-assignment-readonly"><span>Interne Zuordnung</span><strong data-person-subcategory-text="${escapeHtml(person.id)}">${escapeHtml(selectedName)}</strong></div>`}
+          <div class="mw-person-assignment-readonly"><span>Interne Zuordnung</span><strong data-person-subcategory-text="${escapeHtml(person.id)}">${escapeHtml(selectedName)}</strong></div>
         </article>`
     }).join('')
   }
@@ -534,6 +644,122 @@
     return true
   }
 
+  // --- Sichtbarer Hinweis innerhalb der Ansicht ----------------------------
+
+  let pendingNotice = null
+  const showGroupsNotice = (text, tone = 'info') => {
+    pendingNotice = { text, tone }
+  }
+  const renderGroupsNotice = () => {
+    const holder = document.querySelector('[data-person-groups-notice]')
+    if (!holder) return
+    if (!pendingNotice) { holder.hidden = true; holder.textContent = ''; return }
+    holder.textContent = pendingNotice.text
+    holder.className = `mw-person-groups-notice mw-person-groups-notice--${pendingNotice.tone}`
+    holder.hidden = false
+    holder.setAttribute('role', 'status')
+    pendingNotice = null
+  }
+
+  /**
+   * Sammelmaske „Personen Unterkategorien zuordnen“.
+   *
+   * Die OrgEinheit wird in der Liste gewählt – dort ist sie ein reiner
+   * Perspektivfilter. Die Maske zeigt alle direkt zugeordneten Personen dieser
+   * OrgEinheit mit ihrer aktuellen Unterkategorie, macht eine neue auswählbar
+   * und speichert erst auf ausdrückliche Bestätigung, gesammelt.
+   */
+  const openAssignmentMask = (orgUnitId) => {
+    if (!canEdit() || !window.MWEditMask) return false
+    const nodes = loadNodes()
+    const unit = nodes.find((node) => String(node?.id ?? '') === String(orgUnitId))
+    if (!unit || unit.type === 'person') return false
+    const people = peopleForUnit(orgUnitId)
+    if (!people.length) return false
+
+    const groups = groupsForUnit(loadGroups(), orgUnitId)
+    const direct = groups.find(isDirectGroup)
+    const optionen = groups.map((group) => ({ value: group.id, label: group.name }))
+    const aktuelle = (person) => {
+      const eigene = String(person.subcategoryId || '')
+      return groups.some((group) => !isDirectGroup(group) && String(group.id) === eigene)
+        ? eigene
+        : String(direct?.id || '')
+    }
+    const assignments = loadAssignments()
+    const leaderIds = activeLeaderIdsForUnit(assignments, orgUnitId)
+
+    const werte = {}
+    people.forEach((person) => { werte[assignmentFieldName(person.id)] = aktuelle(person) })
+
+    const backToList = () => { renderGroupsCenter(); enhanceChart() }
+    const felder = people.map((person) => ({
+      name: assignmentFieldName(person.id),
+      label: person.name,
+      type: 'select',
+      options: optionen,
+      hint: `Aktuell: ${groups.find((group) => String(group.id) === aktuelle(person))?.name || 'Direkt zugeordnet'}`
+        + (leaderIds.has(String(person.id)) ? ' · Leitungsfunktion in dieser OrgEinheit – das Mandat bleibt unverändert.' : ''),
+    }))
+
+    window.MWEditMask.open({
+      id: 'person-assignment',
+      eyebrow: 'Organisation · Unterkategorien',
+      title: 'Personen Unterkategorien zuordnen',
+      description: `Alle direkt der OrgEinheit „${unitName(orgUnitId)}“ zugeordneten Personen. Änderungen werden gesammelt gespeichert – erst mit „Zuordnungen speichern“.`,
+      breadcrumb: [
+        { label: 'Organisation' },
+        { label: 'Unterkategorien', onSelect: backToList },
+        { label: 'Personen zuordnen' },
+      ],
+      sections: [
+        {
+          title: `Organisationseinheit: ${unitName(orgUnitId)}`,
+          description: 'Diese Maske verändert ausschließlich Personen dieser OrgEinheit.',
+          notes: [
+            `${people.length} ${people.length === 1 ? 'Person ist' : 'Personen sind'} dieser OrgEinheit direkt zugeordnet.`,
+            'Die organisatorische Zuordnung (Mitgliedschaft) wird nicht verändert – nur die interne Gliederung innerhalb der OrgEinheit.',
+            'Leitungsmandate bleiben unberührt: Unterkategorien besitzen keine eigene Leitung.',
+            'Eine andere OrgEinheit wird in der Liste „Unterkategorien“ ausgewählt.',
+          ],
+        },
+        {
+          title: 'Zuordnung je Person',
+          description: '„Direkt zugeordnet“ ist eine bewusste Auswahl: Die Person erscheint dann ohne Unterkategorie.',
+          fields: felder,
+        },
+      ],
+      values: werte,
+      validate: (values) => validatePersonAssignments(loadNodes(), loadGroups(), orgUnitId, values),
+      summary: (values) => {
+        const changes = personAssignmentChanges(loadNodes(), loadGroups(), orgUnitId, values)
+        return {
+          title: changes.length === 0
+            ? 'Keine Änderung'
+            : (changes.length === 1 ? '1 Person wird geändert' : `${changes.length} Personen werden geändert`),
+          lines: changes.map((change) => `${change.personName}: „${change.fromName}“ → „${change.toName}“`),
+          empty: 'Noch keine Zuordnung geändert. Ohne Änderung wird nichts gespeichert.',
+        }
+      },
+      saveLabel: 'Zuordnungen speichern',
+      onSave: (values) => {
+        const result = savePersonAssignments(orgUnitId, values)
+        if (result.error) return { error: result.error, field: result.field }
+        showGroupsNotice(
+          `${result.changed} ${result.changed === 1 ? 'Person wurde' : 'Personen wurden'} neu zugeordnet: `
+            + result.changes.map((change) => `${change.personName} → ${change.toName}`).join(', ')
+            + '. Mitgliedschaft und Leitungsmandate sind unverändert.',
+          'ok',
+        )
+        window.MWEditMask.close()
+        backToList()
+        return true
+      },
+      onCancel: backToList,
+    })
+    return true
+  }
+
   const renderGroupsCenter = () => {
     currentGroupsView = true
     // Die Liste ersetzt eine eventuell offene Maske; deren Zustand wird verworfen.
@@ -551,6 +777,7 @@
           <p>Unterkategorien erzeugen weder eigene OrgEinheiten noch Leitungsfunktionen. Ihre Reihenfolge wird je OrgEinheit manuell festgelegt; Personen innerhalb einer Kategorie werden automatisch nach Nachname sortiert.</p>
           ${canEdit() ? '' : `<p class="mw-person-groups-readonly-badge" data-person-groups-readonly>Nur-Lese-Ansicht für die Rolle „${escapeHtml(roleLabel())}“. Das Auswahlfeld wechselt nur die betrachtete OrgEinheit und ändert keine Daten.</p>`}
         </header>
+        <p class="mw-person-groups-notice" data-person-groups-notice hidden></p>
         <label class="field mw-person-groups-unit-select"><span>OrgEinheit auswählen</span><select data-person-groups-unit>
           ${units().map((unit) => `<option value="${escapeHtml(unit.id)}" ${String(unit.id) === String(orgUnitId) ? 'selected' : ''}>${escapeHtml(unit.name)}</option>`).join('')}
         </select></label>
@@ -569,14 +796,20 @@
             <div class="mw-person-groups-panel-head"><div><span>Personenzuordnung</span><h3>Mitarbeitende</h3></div><strong>${peopleForUnit(orgUnitId).length} Personen</strong></div>
             <p>Eine aktive Leitungsfunktion in dieser OrgEinheit hat Vorrang. Die Person bleibt zugeordnet, erscheint im Organigramm aber ausschließlich als Leitung.</p>
             <div class="mw-person-assignment-list">${renderPeopleAssignments(orgUnitId)}</div>
+            ${canEdit() && peopleForUnit(orgUnitId).length
+              ? '<div class="mw-person-group-add-bar"><button type="button" class="btn btn-primary" data-person-assignment-open>Personen Unterkategorien zuordnen</button><small>Alle Zuordnungen dieser OrgEinheit werden in einer Maske erfasst und gemeinsam gespeichert.</small></div>'
+              : ''}
           </section>
         </div>
       </section>`
+
+    renderGroupsNotice()
 
     content.querySelector('[data-person-groups-unit]')?.addEventListener('change', (event) => {
       selectedUnitId = event.target.value
       renderGroupsCenter()
     })
+    content.querySelector('[data-person-assignment-open]')?.addEventListener('click', () => openAssignmentMask(orgUnitId))
 
     content.querySelector('[data-person-group-create]')?.addEventListener('click', () => openCategoryMask(orgUnitId, null))
     content.querySelectorAll('[data-person-group-edit]').forEach((button) => button.addEventListener('click', () => {
@@ -593,12 +826,6 @@
       renderGroupsCenter()
       enhanceChart()
     }))
-    content.querySelectorAll('[data-person-subcategory-person]').forEach((select) => select.addEventListener('change', () => {
-      assignPerson(select.dataset.personSubcategoryPerson, select.value)
-      renderGroupsCenter()
-      enhanceChart()
-    }))
-
     content.querySelectorAll('[data-person-group-row]').forEach((row) => {
       row.addEventListener('dragstart', () => { draggedGroupId = row.dataset.personGroupRow; row.classList.add('is-dragging') })
       row.addEventListener('dragend', () => { draggedGroupId = null; row.classList.remove('is-dragging') })
@@ -799,10 +1026,16 @@
   }, true)
   window.addEventListener('mw-demo-nodes-changed', scheduleEnhance)
   window.addEventListener('mw-demo-person-groups-changed', scheduleEnhance)
+  // Leitungsmandate bestimmen, wer im Leitungsbereich der Karte erscheint.
+  window.addEventListener('mw-demo-leadership-changed', scheduleEnhance)
   window.addEventListener('storage', scheduleEnhance)
   // Zentraler Lebenszyklus statt eines eigenen Beobachters auf document.body.
   if (window.MWUiLifecycle) window.MWUiLifecycle.watch(scheduleEnhance)
   else new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true })
+
+  // Schreibende Funktionen tragen die Rechteprüfung selbst und sind deshalb
+  // auch dann sicher, wenn sie unmittelbar aufgerufen werden.
+  Object.assign(publicApi, { savePersonAssignments, openAssignmentMask, openCategoryMask })
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleEnhance)
   else scheduleEnhance()

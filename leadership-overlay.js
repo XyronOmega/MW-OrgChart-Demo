@@ -110,6 +110,14 @@
     return true
   }
 
+  /**
+   * Eindeutiges Änderungsereignis für Leitungsmandate. Die übrigen Module
+   * hängen sich hier ein, statt die Seite neu zu laden oder zu pollen.
+   */
+  const announceLeadershipChanged = () => {
+    window.dispatchEvent(new CustomEvent('mw-demo-leadership-changed'))
+  }
+
   const loadNodes = () => {
     const stored = readJson(NODE_KEY, null)
     if (!Array.isArray(stored) || !stored.length) return clone(defaultNodes)
@@ -137,23 +145,81 @@
     return leftStart <= rightEnd && rightStart <= leftEnd
   }
 
-  const validateAssignment = (candidateValue, assignments, editingId = null) => {
-    const candidate = normalizeAssignment(candidateValue)
-    if (!candidate.personId) return 'Bitte eine Person auswählen.'
-    if (!candidate.orgUnitId) return 'Bitte eine OrgEinheit auswählen.'
-    if (!candidate.leadershipRole) return 'Bitte eine Leitungsfunktion angeben.'
-    if (candidate.validFrom && candidate.validTo && candidate.validTo < candidate.validFrom) {
-      return 'Das Gültig-bis-Datum darf nicht vor dem Gültig-ab-Datum liegen.'
+  /**
+   * Fachliche Prüfung eines Leitungsmandats, Meldung je Feld.
+   *
+   * Geprüft wird gegen die Rohwerte: `normalizeAssignment` würde eine
+   * unbekannte Ausübungsart stillschweigend auf `REGULAR` setzen. Ein von außen
+   * eingeschleuster Wert soll aber abgelehnt und nicht ersetzt werden.
+   *
+   * `context.nodes` ist optional. Fehlt es, entfallen die Prüfungen auf
+   * Existenz und Typ von Person und OrgEinheit – die Speicherfunktion reicht
+   * die Knoten immer mit.
+   *
+   * @returns {Object} Zuordnung Feldname → Meldung (leer, wenn alles stimmt)
+   */
+  const validateAssignmentValues = (values, context = {}) => {
+    const { assignments = [], nodes = null, editingId = null } = context
+    const errors = {}
+    const candidate = normalizeAssignment(values)
+    const rawType = String(values?.exerciseType ?? '')
+
+    if (!candidate.personId) errors.personId = 'Bitte eine Person auswählen.'
+    else if (nodes) {
+      const person = nodes.find((node) => String(node?.id) === candidate.personId)
+      if (!person) errors.personId = 'Die gewählte Person ist nicht vorhanden.'
+      else if (person.type !== 'person') errors.personId = 'Der gewählte Eintrag ist keine Person.'
     }
+
+    if (!candidate.orgUnitId) errors.orgUnitId = 'Bitte eine OrgEinheit auswählen.'
+    else if (nodes) {
+      const unit = nodes.find((node) => String(node?.id) === candidate.orgUnitId)
+      if (!unit) errors.orgUnitId = 'Die gewählte OrgEinheit ist nicht vorhanden.'
+      else if (unit.type === 'person') errors.orgUnitId = 'Eine Person ist keine OrgEinheit.'
+    }
+
+    if (!candidate.leadershipRole) errors.leadershipRole = 'Bitte eine Leitungsfunktion angeben.'
+    if (rawType && !exerciseTypeLabels[rawType]) errors.exerciseType = 'Die gewählte Ausübungsart ist unbekannt.'
+
+    if (candidate.validFrom && candidate.validTo && candidate.validTo < candidate.validFrom) {
+      errors.validTo = 'Das Gültig-bis-Datum darf nicht vor dem Gültig-ab-Datum liegen.'
+    }
+
+    // Ein bestehendes Mandat darf beim Bearbeiten nicht als eigene Dublette
+    // gelten: `editingId` wird aus dem Vergleich genommen.
     const duplicate = assignments
-      .filter((entry) => entry.id !== editingId)
+      .filter((entry) => entry.id !== (editingId ?? candidate.id))
       .find((entry) => entry.personId === candidate.personId
         && entry.orgUnitId === candidate.orgUnitId
-        && entry.leadershipRole.toLocaleLowerCase('de-DE') === candidate.leadershipRole.toLocaleLowerCase('de-DE')
+        && String(entry.leadershipRole || '').toLocaleLowerCase('de-DE')
+          === candidate.leadershipRole.toLocaleLowerCase('de-DE')
         && rangesOverlap(entry, candidate))
-    if (duplicate) return 'Für diese Person, OrgEinheit und Leitungsfunktion besteht bereits ein überschneidender Zeitraum.'
-    return null
+    if (duplicate && !errors.leadershipRole) {
+      errors.leadershipRole = 'Für diese Person, OrgEinheit und Leitungsfunktion besteht bereits ein überschneidender Zeitraum.'
+    }
+    return errors
   }
+
+  /** Erste Meldung der Prüfung – bisherige Schnittstelle, unverändert im Verhalten. */
+  const validateAssignment = (candidateValue, assignments, editingId = null, context = {}) => {
+    const errors = validateAssignmentValues(candidateValue, { ...context, assignments, editingId })
+    const first = Object.keys(errors)[0]
+    return first ? errors[first] : null
+  }
+
+  /**
+   * Das Mandat, das beim Setzen einer neuen Hauptleitungsfunktion seine
+   * Kennzeichnung verliert. Es wird nicht gelöscht – `upsertAssignment` setzt
+   * lediglich `primaryLeadership` auf `false`.
+   */
+  const primaryAssignmentFor = (assignments, personId, exceptId = null) => assignments
+    .find((entry) => entry.personId === String(personId ?? '')
+      && entry.primaryLeadership
+      && entry.id !== exceptId) || null
+
+  /** Weitere Leitungsmandate derselben Person, ohne das genannte. */
+  const otherAssignmentsOf = (assignments, personId, exceptId = null) => assignments
+    .filter((entry) => entry.personId === String(personId ?? '') && entry.id !== exceptId)
 
   const upsertAssignment = (assignments, candidateValue) => {
     const candidate = normalizeAssignment(candidateValue)
@@ -180,7 +246,6 @@
   let currentLeadershipView = false
   let selectedPersonId = 'p1'
   let selectedUnitId = 'pm'
-  let editingAssignmentId = null
   let lastOpenedPersonId = null
 
   // Rollenauskunft aus dem gemeinsamen Vokabular (roles.js). Der Rückfall
@@ -303,33 +368,296 @@
       ${canEdit() ? `<div class="leadership-card-actions"><button type="button" class="btn btn-ghost" data-leadership-edit="${escapeHtml(entry.id)}">Bearbeiten</button><button type="button" class="btn btn-ghost leadership-danger" data-leadership-delete="${escapeHtml(entry.id)}">Entfernen</button></div>` : ''}
     </article>`
 
-  const renderForm = () => {
-    const editing = assignments.find((entry) => entry.id === editingAssignmentId)
-    const selectedPerson = editing?.personId || selectedPersonId || people()[0]?.id || ''
-    const selectedUnit = editing?.orgUnitId || selectedUnitId || units()[0]?.id || ''
-    return `
-      <form class="leadership-form" data-leadership-form>
-        <div class="leadership-form-heading"><span>${editing ? 'Leitungsfunktion bearbeiten' : 'Neue Leitungsfunktion'}</span><h3>Leitungsmandat</h3><p>Die organisatorische Zuordnung der Person bleibt dabei unverändert.</p></div>
-        <input type="hidden" name="id" value="${escapeHtml(editing?.id || `lead-${Date.now()}`)}">
-        <div class="leadership-form-grid">
-          <label class="field"><span>Person *</span><select name="personId">${people().map((person) => `<option value="${escapeHtml(person.id)}" ${person.id === selectedPerson ? 'selected' : ''}>${escapeHtml(person.name)}</option>`).join('')}</select></label>
-          <label class="field"><span>OrgEinheit *</span><select name="orgUnitId">${units().map((unit) => `<option value="${escapeHtml(unit.id)}" ${unit.id === selectedUnit ? 'selected' : ''}>${escapeHtml(unit.name)}</option>`).join('')}</select></label>
-          <label class="field"><span>Leitungsfunktion *</span><input name="leadershipRole" value="${escapeHtml(editing?.leadershipRole || 'Teamleitung')}" placeholder="z. B. Teamleitung"></label>
-          <label class="field"><span>Ausübungsart</span><select name="exerciseType">${Object.entries(exerciseTypeLabels).map(([value, label]) => `<option value="${value}" ${editing?.exerciseType === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select></label>
-          <label class="field"><span>Gültig ab</span><input type="date" name="validFrom" value="${escapeHtml(editing?.validFrom || '2026-08-01')}"></label>
-          <label class="field"><span>Gültig bis</span><input type="date" name="validTo" value="${escapeHtml(editing?.validTo || '')}"></label>
-          <label class="field leadership-wide"><span>Hinweis</span><input name="note" value="${escapeHtml(editing?.note || '')}" placeholder="Optionaler Hinweis"></label>
-          <label class="leadership-checkbox leadership-wide"><input type="checkbox" name="primaryLeadership" ${editing?.primaryLeadership ? 'checked' : ''}><span>Als Hauptleitungsfunktion dieser Person kennzeichnen</span></label>
-        </div>
-        <p class="leadership-form-message" data-leadership-message>Änderungen bleiben lokal in diesem Browser.</p>
-        <div class="leadership-form-actions"><button type="submit" class="btn btn-primary">${editing ? 'Änderung speichern' : 'Leitungsfunktion hinzufügen'}</button>${editing ? '<button type="button" class="btn btn-ghost" data-leadership-cancel>Abbrechen</button>' : ''}</div>
-      </form>`
+  // --- Speichern und Entfernen ---------------------------------------------
+
+  /**
+   * Schreibt ein Leitungsmandat. Die Rechteprüfung liegt hier und nicht nur in
+   * der Darstellung; die fachliche Prüfung läuft gegen die Rohwerte, damit
+   * eingeschleuste Angaben abgelehnt statt stillschweigend ersetzt werden.
+   *
+   * @returns {Object} `{ ok, demoted }` oder `{ error, field }`
+   */
+  const saveAssignmentValues = (values, editingId = null) => {
+    if (!canEdit()) return { error: 'Die aktive Rolle darf Leitungsfunktionen nicht bearbeiten.' }
+    const list = loadAssignments()
+    const errors = validateAssignmentValues(values, { assignments: list, nodes: nodes(), editingId })
+    const field = Object.keys(errors)[0]
+    if (field) return { error: errors[field], field }
+
+    const candidate = normalizeAssignment({
+      ...values,
+      id: editingId || values.id || `lead-${Date.now()}`,
+      validTo: values.validTo || null,
+    })
+    // Wird eine neue Hauptleitungsfunktion gesetzt, verliert das bisherige
+    // Hauptmandat derselben Person nur die Kennzeichnung. Gelöscht wird nichts.
+    const demoted = candidate.primaryLeadership
+      ? primaryAssignmentFor(list, candidate.personId, candidate.id)
+      : null
+    assignments = upsertAssignment(list, candidate)
+    if (!saveAssignments(assignments)) {
+      assignments = loadAssignments()
+      return { error: 'Die aktive Rolle darf Leitungsfunktionen nicht bearbeiten.' }
+    }
+    announceLeadershipChanged()
+    return { ok: true, demoted, saved: candidate }
+  }
+
+  /**
+   * Entfernt genau ein Leitungsmandat. Mitgliedschaft und übrige Mandate
+   * bleiben unberührt; es wird auch keine andere Funktion nachrücken.
+   */
+  const removeAssignmentById = (assignmentId) => {
+    if (!canEdit()) return { error: 'Die aktive Rolle darf Leitungsfunktionen nicht bearbeiten.' }
+    const list = loadAssignments()
+    const entry = list.find((item) => item.id === String(assignmentId))
+    if (!entry) return { error: 'Diese Leitungsfunktion ist nicht mehr vorhanden.' }
+    assignments = list.filter((item) => item.id !== entry.id)
+    if (!saveAssignments(assignments)) {
+      assignments = loadAssignments()
+      return { error: 'Die aktive Rolle darf Leitungsfunktionen nicht bearbeiten.' }
+    }
+    announceLeadershipChanged()
+    return { ok: true, removed: entry }
+  }
+
+  /** Auswirkungen des Entfernens – Grundlage des sichtbaren Bestätigungsbereichs. */
+  const assignmentImpact = (entry) => {
+    const others = otherAssignmentsOf(assignments, entry.personId, entry.id)
+    const lines = [
+      `Person: ${personName(entry.personId)}`,
+      `Organisationseinheit: ${unitName(entry.orgUnitId)}`,
+      `Leitungsfunktion: ${entry.leadershipRole}`,
+      `Ausübungsart: ${exerciseTypeLabels[entry.exerciseType]}`,
+      `Gültigkeitszeitraum: ${formatDate(entry.validFrom)} – ${formatDate(entry.validTo)}`,
+      `Hauptleitungsfunktion: ${entry.primaryLeadership ? 'ja' : 'nein'}`,
+      `Die organisatorische Mitgliedschaft bleibt unverändert: ${personName(entry.personId)} bleibt „${directUnitName(entry.personId)}“ zugeordnet.`,
+      others.length
+        ? `Andere Leitungsmandate dieser Person bleiben bestehen (${others.length}): ${others.map((item) => `${item.leadershipRole} in ${unitName(item.orgUnitId)}`).join(', ')}.`
+        : 'Diese Person hat kein weiteres Leitungsmandat; es bleibt keines zurück.',
+    ]
+    if (entry.primaryLeadership) {
+      lines.push('Es rückt keine andere Leitungsfunktion automatisch als Hauptleitungsfunktion nach. Die Person hat danach keine gekennzeichnete Hauptleitungsfunktion.')
+    }
+    return lines
+  }
+
+  // --- Sichtbarer Hinweis innerhalb der Ansicht ----------------------------
+
+  let pendingNotice = null
+  const showLeadershipNotice = (text, tone = 'info') => {
+    pendingNotice = { text, tone }
+  }
+  const renderLeadershipNotice = () => {
+    const holder = document.querySelector('[data-leadership-notice]')
+    if (!holder) return
+    if (!pendingNotice) { holder.hidden = true; holder.textContent = ''; return }
+    holder.textContent = pendingNotice.text
+    holder.className = `leadership-notice leadership-notice--${pendingNotice.tone}`
+    holder.hidden = false
+    holder.setAttribute('role', 'status')
+    pendingNotice = null
+  }
+
+  // --- Maske ----------------------------------------------------------------
+
+  const todayIso = () => new Date().toISOString().slice(0, 10)
+
+  /**
+   * Feste Bearbeitungsmaske für ein Leitungsmandat im Hauptinhaltsbereich.
+   *
+   * Ersetzt das frühere Formular am Seitenende und `window.confirm` beim
+   * Entfernen. Das Entfernen läuft über den sichtbaren Bestätigungsbereich der
+   * Maske; `dangerOpen` blendet ihn direkt ein, wenn der Einstieg ausdrücklich
+   * darauf zielt.
+   */
+  const openLeadershipMask = (assignmentId, { dangerOpen = false } = {}) => {
+    if (!canEdit() || !window.MWEditMask) return false
+    assignments = loadAssignments()
+    const entry = assignmentId ? assignments.find((item) => item.id === String(assignmentId)) : null
+    if (assignmentId && !entry) return false
+
+    const zurueck = () => {
+      renderLeadershipCenter()
+      injectLeadership()
+    }
+    const personList = people()
+    const unitList = units()
+    const basePersonId = entry?.personId || selectedPersonId || personList[0]?.id || ''
+    const current = primaryAssignmentFor(assignments, basePersonId, entry?.id || null)
+
+    window.MWEditMask.open({
+      id: 'leadership',
+      eyebrow: 'Organisation · Leitungsfunktionen',
+      title: entry
+        ? `Leitungsfunktion „${entry.leadershipRole}“ bearbeiten`
+        : 'Neue Leitungsfunktion anlegen',
+      description: entry
+        ? 'Person, Organisationseinheit, Ausübungsart und Gültigkeit dieses Leitungsmandats.'
+        : 'Ein Leitungsmandat verbindet eine Person mit einer Organisationseinheit. Die organisatorische Zuordnung der Person bleibt davon unberührt.',
+      breadcrumb: [
+        { label: 'Organisation' },
+        { label: 'Leitungsfunktionen', onSelect: zurueck },
+        { label: entry ? entry.leadershipRole : 'Neue Leitungsfunktion' },
+      ],
+      sections: [
+        {
+          title: 'Person und Organisation',
+          description: 'Wer führt welche Organisationseinheit, und in welcher Funktion?',
+          fields: [
+            {
+              name: 'personId',
+              label: 'Person',
+              type: 'select',
+              required: true,
+              options: [
+                { value: '', label: 'Bitte auswählen' },
+                ...personList.map((person) => ({ value: person.id, label: person.name })),
+              ],
+              hint: 'Nur Personen stehen zur Auswahl. Die Mitgliedschaft der Person ändert sich dadurch nicht.',
+            },
+            {
+              name: 'orgUnitId',
+              label: 'Organisationseinheit',
+              type: 'select',
+              required: true,
+              options: [
+                { value: '', label: 'Bitte auswählen' },
+                ...unitList.map((unit) => ({ value: unit.id, label: unit.name })),
+              ],
+              hint: 'Unterkategorien stehen nicht zur Auswahl: Sie sind keine OrgEinheiten und besitzen keine eigene Leitung.',
+            },
+            {
+              name: 'leadershipRole',
+              label: 'Leitungsfunktion',
+              type: 'text',
+              required: true,
+              maxLength: 80,
+              wide: true,
+              placeholder: 'z. B. Teamleitung',
+            },
+          ],
+        },
+        {
+          title: 'Ausübungsart',
+          description: 'Wie wird die Leitungsfunktion wahrgenommen?',
+          notes: [
+            'Je Person ist höchstens eine Leitungsfunktion als Hauptleitungsfunktion gekennzeichnet.',
+            current
+              ? `Aktuell gekennzeichnet für ${personName(basePersonId)}: „${current.leadershipRole}“ in ${unitName(current.orgUnitId)}. Beim Aktivieren des Kennzeichens verliert dieser Eintrag nur die Kennzeichnung – er bleibt bestehen und wird nicht gelöscht.`
+              : `Für ${personName(basePersonId) || 'die gewählte Person'} ist derzeit keine Hauptleitungsfunktion gekennzeichnet.`,
+            'Leitung und Mitgliedschaft bleiben getrennt: Ein Leitungsmandat erzeugt keine zusätzliche organisatorische Zuordnung.',
+          ],
+          fields: [
+            {
+              name: 'exerciseType',
+              label: 'Ausübungsart',
+              type: 'select',
+              required: true,
+              options: Object.entries(exerciseTypeLabels).map(([value, label]) => ({ value, label })),
+            },
+            {
+              name: 'primaryLeadership',
+              label: 'Als Hauptleitungsfunktion dieser Person kennzeichnen',
+              type: 'checkbox',
+              hint: 'Eine bisherige Hauptleitungsfunktion derselben Person wird dabei zurückgestuft, aber nicht entfernt.',
+            },
+          ],
+        },
+        {
+          title: 'Gültigkeit',
+          description: 'Ohne Enddatum gilt das Mandat unbefristet.',
+          fields: [
+            { name: 'validFrom', label: 'Gültig ab', type: 'date' },
+            {
+              name: 'validTo',
+              label: 'Gültig bis',
+              type: 'date',
+              hint: 'Darf nicht vor dem Gültig-ab-Datum liegen. Leer bedeutet unbefristet.',
+            },
+          ],
+        },
+        {
+          title: 'Ergänzende Angaben',
+          fields: [
+            {
+              name: 'note',
+              label: 'Hinweis',
+              type: 'textarea',
+              rows: 3,
+              maxLength: 300,
+              wide: true,
+              placeholder: 'z. B. Vertretungsregelung oder Grund der kommissarischen Wahrnehmung',
+            },
+          ],
+        },
+      ],
+      values: {
+        personId: entry?.personId || basePersonId,
+        orgUnitId: entry?.orgUnitId || selectedUnitId || unitList[0]?.id || '',
+        leadershipRole: entry?.leadershipRole || '',
+        exerciseType: entry?.exerciseType || 'REGULAR',
+        primaryLeadership: Boolean(entry?.primaryLeadership),
+        validFrom: entry?.validFrom || todayIso(),
+        validTo: entry?.validTo || '',
+        note: entry?.note || '',
+      },
+      validate: (values) => validateAssignmentValues(values, {
+        assignments: loadAssignments(),
+        nodes: nodes(),
+        editingId: entry?.id || null,
+      }),
+      saveLabel: entry ? 'Änderungen speichern' : 'Leitungsfunktion anlegen',
+      onSave: (values) => {
+        const result = saveAssignmentValues(values, entry?.id || null)
+        if (result.error) return { error: result.error, field: result.field }
+        selectedPersonId = result.saved.personId
+        selectedUnitId = result.saved.orgUnitId
+        const zurueckgestuft = result.demoted
+          ? ` Die bisherige Hauptleitungsfunktion „${result.demoted.leadershipRole}“ in ${unitName(result.demoted.orgUnitId)} ist weiterhin vorhanden, aber nicht mehr als Hauptleitungsfunktion gekennzeichnet.`
+          : ''
+        showLeadershipNotice(
+          `${entry ? 'Leitungsfunktion gespeichert' : 'Leitungsfunktion angelegt'}: „${result.saved.leadershipRole}“ für ${personName(result.saved.personId)} in ${unitName(result.saved.orgUnitId)}.${zurueckgestuft}`,
+          'ok',
+        )
+        window.MWEditMask.close()
+        zurueck()
+        return true
+      },
+      onCancel: zurueck,
+      dangerOpen: Boolean(entry) && dangerOpen,
+      danger: entry
+        ? {
+          title: 'Leitungsfunktion entfernen',
+          description: 'Entfernt ausschließlich dieses Leitungsmandat. Die organisatorische Zuordnung der Person bleibt bestehen.',
+          label: 'Leitungsfunktion entfernen',
+          question: `Leitungsfunktion „${entry.leadershipRole}“ von ${personName(entry.personId)} endgültig entfernen?`,
+          impact: assignmentImpact(entry),
+          note: 'Die Änderung bleibt lokal in diesem Browser.',
+          confirmLabel: 'Endgültig entfernen',
+          onConfirm: () => {
+            const result = removeAssignmentById(entry.id)
+            showLeadershipNotice(
+              result.error
+                ? result.error
+                : `Leitungsfunktion „${entry.leadershipRole}“ von ${personName(entry.personId)} wurde entfernt. Die organisatorische Zuordnung ist unverändert.`,
+              result.error ? 'error' : 'ok',
+            )
+            window.MWEditMask.close()
+            zurueck()
+          },
+        }
+        : null,
+    })
+    return true
   }
 
   const renderLeadershipCenter = () => {
     const content = document.getElementById('content')
     if (!content) return
     currentLeadershipView = true
+    // Die Liste ersetzt eine eventuell offene Maske; deren Zustand wird verworfen.
+    window.MWEditMask?.close()
     const person = nodeById(selectedPersonId) || people()[0]
     const unit = nodeById(selectedUnitId) || units()[0]
     selectedPersonId = person?.id || ''
@@ -344,6 +672,7 @@
     content.innerHTML = `
       <section class="leadership-center" data-leadership-page>
         <header class="leadership-page-heading"><span>Personen und OrgEinheiten</span><h2>Leitungsfunktionen</h2><p>Mitgliedschaft und Leitung sind getrennte Beziehungen. Mehrere gleichzeitige Leitungsmandate und Personalunionen sind möglich.</p>${canEdit() ? '' : `<p class="leadership-readonly-badge" data-leadership-readonly>Nur-Lese-Ansicht für die Rolle „${escapeHtml(roleLabel())}“. Die beiden Auswahlfelder wechseln nur die Betrachtungsperspektive und ändern keine Daten.</p>`}</header>
+        <p class="leadership-notice" data-leadership-notice hidden></p>
         <div class="leadership-perspectives">
           <section class="leadership-perspective">
             <label class="field"><span>Person auswählen</span><select data-leadership-person>${people().map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === selectedPersonId ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>
@@ -356,67 +685,28 @@
             <div class="leadership-card-list">${unitAssignments.length ? unitAssignments.map((entry) => assignmentCard(entry, 'unit')).join('') : '<p class="leadership-empty">Keine Leitung hinterlegt.</p>'}</div>
           </section>
         </div>
-        ${canEdit() ? renderForm() : `<p class="leadership-readonly">Die Rolle „${escapeHtml(roleLabel())}“ darf Leitungsfunktionen ansehen, aber nicht bearbeiten. Es werden deshalb keine Eingabefelder für Leitungsmandate angeboten.</p>`}
+        ${canEdit()
+          ? '<div class="leadership-add-bar"><button type="button" class="btn btn-primary" data-leadership-create>Leitungsfunktion anlegen</button><small>Anlegen, Bearbeiten und Entfernen erfolgen in einer eigenen Maske im Hauptbereich.</small></div>'
+          : `<p class="leadership-readonly">Die Rolle „${escapeHtml(roleLabel())}“ darf Leitungsfunktionen ansehen, aber nicht bearbeiten. Es werden deshalb keine Eingabefelder für Leitungsmandate angeboten.</p>`}
       </section>`
+
+    renderLeadershipNotice()
 
     content.querySelector('[data-leadership-person]')?.addEventListener('change', (event) => {
       selectedPersonId = event.target.value
-      editingAssignmentId = null
       renderLeadershipCenter()
     })
     content.querySelector('[data-leadership-unit]')?.addEventListener('change', (event) => {
       selectedUnitId = event.target.value
-      editingAssignmentId = null
       renderLeadershipCenter()
     })
+    content.querySelector('[data-leadership-create]')?.addEventListener('click', () => openLeadershipMask(null))
     content.querySelectorAll('[data-leadership-edit]').forEach((button) => button.addEventListener('click', () => {
-      editingAssignmentId = button.dataset.leadershipEdit
-      const entry = assignments.find((item) => item.id === editingAssignmentId)
-      if (entry) {
-        selectedPersonId = entry.personId
-        selectedUnitId = entry.orgUnitId
-      }
-      renderLeadershipCenter()
+      openLeadershipMask(button.dataset.leadershipEdit)
     }))
     content.querySelectorAll('[data-leadership-delete]').forEach((button) => button.addEventListener('click', () => {
-      const entry = assignments.find((item) => item.id === button.dataset.leadershipDelete)
-      if (!entry) return
-      if (!window.confirm(`Leitungsfunktion „${entry.leadershipRole}“ von ${personName(entry.personId)} entfernen?`)) return
-      assignments = assignments.filter((item) => item.id !== entry.id)
-      saveAssignments(assignments)
-      editingAssignmentId = null
-      injectLeadership()
-      renderLeadershipCenter()
+      openLeadershipMask(button.dataset.leadershipDelete, { dangerOpen: true })
     }))
-
-    const form = content.querySelector('[data-leadership-form]')
-    form?.addEventListener('submit', (event) => {
-      event.preventDefault()
-      const data = Object.fromEntries(new FormData(form).entries())
-      const candidate = normalizeAssignment({
-        ...data,
-        validTo: data.validTo || null,
-        primaryLeadership: form.elements.primaryLeadership.checked,
-      })
-      const error = validateAssignment(candidate, assignments, editingAssignmentId)
-      const message = form.querySelector('[data-leadership-message]')
-      if (error) {
-        message.textContent = error
-        message.classList.add('is-error')
-        return
-      }
-      assignments = upsertAssignment(assignments, candidate)
-      saveAssignments(assignments)
-      selectedPersonId = candidate.personId
-      selectedUnitId = candidate.orgUnitId
-      editingAssignmentId = null
-      injectLeadership()
-      renderLeadershipCenter()
-    })
-    content.querySelector('[data-leadership-cancel]')?.addEventListener('click', () => {
-      editingAssignmentId = null
-      renderLeadershipCenter()
-    })
   }
 
   const ensureNavigation = () => {
@@ -443,7 +733,6 @@
         const target = event.target.closest('button')
         if (!target || target.dataset.leadershipView) return
         currentLeadershipView = false
-        editingAssignmentId = null
       })
     }
   }
@@ -470,8 +759,10 @@
   document.getElementById('resetBtn')?.addEventListener('click', () => {
     localStorage.removeItem(ASSIGNMENT_KEY)
     assignments = loadAssignments()
-    editingAssignmentId = null
   }, true)
+
+  /** Ist gerade eine Bearbeitungsmaske im Hauptbereich sichtbar? */
+  const maskIsOpen = () => Boolean(window.MWEditMask?.isOpen())
 
   let scheduled = false
   const scheduleEnhance = () => {
@@ -482,13 +773,23 @@
       ensureNavigation()
       injectLeadership()
       injectPersonDrawer()
-      if (currentLeadershipView && !document.querySelector('[data-leadership-page]')) renderLeadershipCenter()
+      // Eine offene Maske ist ein eigener Seitenzustand und darf nicht durch
+      // den Wiederaufbau der Liste ersetzt werden.
+      if (currentLeadershipView && !maskIsOpen() && !document.querySelector('[data-leadership-page]')) {
+        renderLeadershipCenter()
+      }
     })
   }
 
   // Zentraler Lebenszyklus statt eines eigenen Beobachters auf document.body.
   if (window.MWUiLifecycle) window.MWUiLifecycle.watch(scheduleEnhance)
   else new MutationObserver(scheduleEnhance).observe(document.body, { childList: true, subtree: true })
+  // Änderungen an Personen oder OrgEinheiten wirken sich auf die Darstellung
+  // der Leitungsmandate aus; die Ansicht wird gezielt nachgeführt.
+  window.addEventListener('mw-demo-nodes-changed', scheduleEnhance)
+  document.addEventListener('mw-demo-nodes-changed', scheduleEnhance)
+  window.addEventListener('mw-demo-leadership-changed', scheduleEnhance)
+
   window.MWLeadershipDemo = {
     defaultAssignments: clone(defaultAssignments),
     exerciseTypeLabels: { ...exerciseTypeLabels },
@@ -496,10 +797,18 @@
     isActive,
     rangesOverlap,
     validateAssignment,
+    validateAssignmentValues,
+    primaryAssignmentFor,
+    otherAssignmentsOf,
     upsertAssignment,
     assignmentsForPerson,
     assignmentsForUnit,
+    assignmentImpact,
     loadAssignments: () => clone(loadAssignments()),
+    // Schreibende Funktionen tragen die Rechteprüfung selbst.
+    saveAssignmentValues,
+    removeAssignmentById,
+    openLeadershipMask,
   }
   scheduleEnhance()
 })()
