@@ -181,6 +181,47 @@
     </div>`
   }
 
+  /**
+   * Mitlaufende Zusammenfassung vor dem Speichern.
+   *
+   * Sammelmasken erfassen viele Einzelangaben auf einmal. `config.summary`
+   * erhält die aktuellen Werte und liefert die Zeilen, die vor dem Speichern
+   * sichtbar sein müssen – etwa „3 Personen werden geändert“ mit bisheriger und
+   * neuer Zuordnung. Der Bereich wird bei jeder Eingabe nachgeführt, damit die
+   * Zusammenfassung nicht veraltet.
+   *
+   * Rückgabe: `string[]` oder `{ title, lines, empty }`.
+   */
+  const summaryData = () => {
+    const build = active?.config.summary
+    if (typeof build !== 'function') return null
+    const result = build({ ...active.values }) || {}
+    const list = Array.isArray(result)
+    return {
+      title: (list ? null : result.title) || 'Zusammenfassung',
+      lines: (list ? result : result.lines) || [],
+      empty: (list ? null : result.empty) || 'Es gibt derzeit nichts zu speichern.',
+    }
+  }
+
+  const summaryInner = (data) => `<strong>${escapeHtml(data.title)}</strong>`
+    + (data.lines.length
+      ? `<ul>${data.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`
+      : `<p>${escapeHtml(data.empty)}</p>`)
+
+  const liveSummaryMarkup = () => {
+    const data = summaryData()
+    if (!data) return ''
+    return `<section class="mw-mask-live-summary" data-mw-mask-live-summary role="status" aria-live="polite">${summaryInner(data)}</section>`
+  }
+
+  const updateLiveSummary = () => {
+    const data = summaryData()
+    const holder = content()?.querySelector('[data-mw-mask-live-summary]')
+    if (!data || !holder) return
+    holder.innerHTML = summaryInner(data)
+  }
+
   /** Sichtbarer Bestätigungsbereich statt window.confirm. */
   const dangerMarkup = (config) => {
     const danger = config.danger
@@ -244,6 +285,7 @@
         <form class="mw-mask-form" data-mw-mask-form novalidate>
           ${requiredHint}
           ${(config.sections || []).map((section, index) => sectionMarkup(config, section, index)).join('')}
+          ${liveSummaryMarkup()}
           <div class="mw-mask-actions" data-mw-mask-actions>
             ${config.readOnly
               ? `<button type="button" class="btn btn-ghost" data-mw-mask-cancel>${escapeHtml(config.cancelLabel || 'Zurück')}</button>`
@@ -320,6 +362,7 @@
       const sync = () => {
         active.values[field.name] = normalizeValue(field, readField(element, field))
         updateDirtyMarker()
+        updateLiveSummary()
       }
       element.addEventListener('input', () => {
         sync()
@@ -432,6 +475,10 @@
     allFields(config.sections).forEach((field) => {
       values[field.name] = normalizeValue(field, config.values?.[field.name])
     })
+    // `dangerOpen` öffnet den Bestätigungsbereich sofort – für Einstiege, die
+    // ausdrücklich auf das Entfernen zielen. Der Fokus liegt dann auf der
+    // sicheren Vorbelegung „Abbrechen“, nicht auf der endgültigen Aktion.
+    const dangerOpen = Boolean(config.dangerOpen && config.danger && !config.readOnly)
     active = {
       config: { ...config },
       initial: { ...values },
@@ -439,9 +486,9 @@
       errors: {},
       showAllErrors: false,
       pendingLeave: null,
-      danger: null,
+      danger: dangerOpen ? 'open' : null,
     }
-    render({ focus: 'title' })
+    render({ focus: dangerOpen ? 'danger' : 'title' })
     return true
   }
 

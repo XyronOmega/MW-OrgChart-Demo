@@ -15,8 +15,12 @@ const makeContext = () => {
     addEventListener: () => {},
   }
   const context = {
-    window: { confirm: () => true },
+    // Ohne `confirm`: Seit Paket 3 läuft das Entfernen über den sichtbaren
+    // Bestätigungsbereich der Maske. Ein Zugriff auf einen Systemdialog würde
+    // hier sofort auffallen.
+    window: { addEventListener: () => {}, dispatchEvent: () => true },
     document,
+    CustomEvent: class { constructor(type) { this.type = type } },
     localStorage: {
       getItem: (key) => store.has(key) ? store.get(key) : null,
       setItem: (key, value) => store.set(key, String(value)),

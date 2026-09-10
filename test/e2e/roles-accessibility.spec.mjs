@@ -161,20 +161,29 @@ describe('Leser-Rechte', () => {
     const page = await openPage()
     await login(page, 'viewer')
     assert.ok(await openView(page, 'Unterkategorien'))
-    // Ein nachträglich aktiviertes Bedienelement darf nichts bewirken:
-    // Die Schreibfunktion selbst prüft das Recht.
+    // Die Schreibfunktion selbst prüft das Recht. Seit Paket 3 laufen
+    // Personenzuordnungen über eine Sammelmaske; geprüft wird deshalb der
+    // unmittelbare Aufruf, nicht mehr ein nachgerüstetes Auswahlfeld.
     const ergebnis = await page.evaluate(async () => {
       const schluessel = 'mw-demo-nodes'
       const vorher = localStorage.getItem(schluessel)
       const person = document.querySelector('[data-person-subcategory-text]')
-      const select = document.createElement('select')
-      select.dataset.personSubcategoryPerson = person?.dataset.personSubcategoryText || 'p1'
-      document.getElementById('content').append(select)
-      select.dispatchEvent(new Event('change', { bubbles: true }))
+      const personId = person?.dataset.personSubcategoryText || 'p1'
+      const einheit = document.querySelector('[data-person-groups-unit]')?.value || 'pm'
+      const antwort = window.MWPersonGroups?.savePersonAssignments?.(einheit, {
+        [`person:${personId}`]: `direct:${einheit}`,
+      })
+      const maske = window.MWPersonGroups?.openAssignmentMask?.(einheit)
       await new Promise((resolve) => setTimeout(resolve, 400))
-      return { unveraendert: vorher === localStorage.getItem(schluessel) }
+      return {
+        unveraendert: vorher === localStorage.getItem(schluessel),
+        abgelehnt: Boolean(antwort?.error),
+        keineMaske: maske === false,
+      }
     })
-    assert.ok(ergebnis.unveraendert, 'Ein nachträglich eingefügtes Bedienelement konnte schreiben.')
+    assert.ok(ergebnis.abgelehnt, 'Die Speicherfunktion hat den Leser nicht abgewiesen.')
+    assert.ok(ergebnis.keineMaske, 'Ein Leser konnte die Sammelmaske öffnen.')
+    assert.ok(ergebnis.unveraendert, 'Der unmittelbare Aufruf der Speicherfunktion konnte schreiben.')
     await page.close()
   })
 
@@ -188,11 +197,14 @@ describe('Leser-Rechte', () => {
     const befund = await page.evaluate(() => ({
       maskeAnlegen: !!document.querySelector('[data-person-group-create]'),
       ziehbar: document.querySelectorAll('[draggable="true"]').length,
-      zuordnung: document.querySelectorAll('[data-person-subcategory-person]').length,
+      // Seit Paket 3 ersetzt die Sammelmaske die Auswahlfelder je Person.
+      zuordnung: !!document.querySelector('[data-person-assignment-open]'),
+      einzelfelder: document.querySelectorAll('[data-person-subcategory-person]').length,
     }))
     assert.ok(befund.maskeAnlegen, 'Der Bearbeitungsrolle fehlt der Einstieg in die Maske für neue Unterkategorien.')
     assert.ok(befund.ziehbar > 0, 'Der Bearbeitungsrolle fehlen die ziehbaren Zeilen.')
-    assert.ok(befund.zuordnung > 0, 'Der Bearbeitungsrolle fehlen die Zuordnungsfelder.')
+    assert.ok(befund.zuordnung, 'Der Bearbeitungsrolle fehlt der Einstieg in die Sammelmaske für Zuordnungen.')
+    assert.equal(befund.einzelfelder, 0, 'Die Auswahlfelder mit sofortiger Speicherung sind zurückgekehrt.')
     await page.close()
   })
 
